@@ -33,8 +33,9 @@ declare module 'next-auth' {
 }
 
 import { authConfig } from './auth.config';
+import type { NextAuthConfig } from 'next-auth';
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const config = {
     ...authConfig,
     secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
     trustHost: true,
@@ -72,4 +73,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
         }),
     ],
-});
+} satisfies NextAuthConfig;
+
+export const { handlers, signIn, signOut, auth } = NextAuth(config);

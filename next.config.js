@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     experimental: {
-        serverComponentsExternalPackages: ['bcryptjs', 'bcrypt', 'next-auth', '@auth/core'],
+        serverComponentsExternalPackages: ['bcryptjs', 'bcrypt'],
         instrumentationHook: false,
     },
     images: {
