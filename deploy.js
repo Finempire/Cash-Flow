@@ -5,16 +5,27 @@ const USER = 'root';
 const PASS = 'Samshek@1998';
 const APP_DIR = '/var/www/Cash-Flow';
 
-// Phase 3: repo already cloned, .env created. Clear npm cache and finish setup.
+// Update deployment: pull latest, rebuild, restart
 const DEPLOY_SCRIPT = `
 #!/bin/bash
 set -e
 
-echo "=== Clear npm cache ==="
-npm cache clean --force
-rm -rf ${APP_DIR}/node_modules ${APP_DIR}/package-lock.json
+echo "=== Pull latest code ==="
+cd ${APP_DIR}
+git pull origin main
 
-echo "=== Re-install Dependencies ==="
+echo "=== Update .env (fix AUTH_URL issue) ==="
+# Ensure AUTH_URL and NEXTAUTH_URL are removed from .env if present
+cd ${APP_DIR}
+sed -i '/^NEXTAUTH_URL=/d' .env 2>/dev/null || true
+sed -i '/^AUTH_URL=/d' .env 2>/dev/null || true
+sed -i '/^AUTH_TRUST_HOST=/d' .env 2>/dev/null || true
+sed -i '/^NEXTAUTH_SECRET=/d' .env 2>/dev/null || true
+
+# Ensure AUTH_SECRET exists
+grep -q '^AUTH_SECRET=' .env || echo 'AUTH_SECRET="k8xP2mN7qR3sT9vW4yB6dF1hJ5lC8nQ0rU3wA7eI2oK4tX6zM9pV1gY5bJ8fH"' >> .env
+
+echo "=== Install Dependencies ==="
 cd ${APP_DIR}
 npm install --legacy-peer-deps
 
@@ -25,13 +36,13 @@ npx prisma db push --accept-data-loss
 
 echo "=== Seed Database ==="
 cd ${APP_DIR}
-npx prisma db seed || echo "Seed done."
+npx prisma db seed || echo "Seed done (may already exist)."
 
 echo "=== Build Next.js ==="
 cd ${APP_DIR}
 npm run build
 
-echo "=== Start PM2 ==="
+echo "=== Restart PM2 ==="
 cd ${APP_DIR}
 pm2 delete cashflow 2>/dev/null || true
 pm2 start npm --name "cashflow" -- start
@@ -72,16 +83,16 @@ pm2 status
 function deploy() {
   const conn = new Client();
   conn.on('ready', () => {
-    console.log('Connected! Running phase 3...');
+    console.log('Connected! Running deployment...');
     conn.exec(DEPLOY_SCRIPT, (err, stream) => {
       if (err) { console.error(err); conn.end(); return; }
       stream.on('data', (d) => process.stdout.write(d.toString()));
       stream.stderr.on('data', (d) => process.stderr.write(d.toString()));
-      stream.on('close', (code) => { console.log('\\nExit code:', code); conn.end(); });
+      stream.on('close', (code) => { console.log('\nExit code:', code); conn.end(); });
     });
   });
   conn.on('error', (err) => { console.error('SSH Error:', err.message); process.exit(1); });
-  console.log('Connecting...');
+  console.log('Connecting to Linode...');
   conn.connect({ host: SERVER, port: 22, username: USER, password: PASS, readyTimeout: 30000 });
 }
 deploy();
