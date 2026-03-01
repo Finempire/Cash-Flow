@@ -15,7 +15,6 @@ cd ${APP_DIR}
 git pull origin main
 
 echo "=== Update .env (fix AUTH_URL issue) ==="
-# Ensure AUTH_URL and NEXTAUTH_URL are removed from .env if present
 cd ${APP_DIR}
 sed -i '/^NEXTAUTH_URL=/d' .env 2>/dev/null || true
 sed -i '/^AUTH_URL=/d' .env 2>/dev/null || true
@@ -56,19 +55,24 @@ server {
     server_name 172.105.56.225;
     client_max_body_size 20M;
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \\$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \\$host;
-        proxy_set_header X-Real-IP \\$remote_addr;
-        proxy_cache_bypass \\$http_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
     }
 }
 NGINXEOF
 rm -f /etc/nginx/sites-enabled/default
 ln -sf /etc/nginx/sites-available/cashflow /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+nginx -t && systemctl restart nginx
 echo "Nginx configured."
 
 echo ""
