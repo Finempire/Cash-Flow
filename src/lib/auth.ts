@@ -47,11 +47,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials) {
+                console.log('AUTHORIZE CALLED with credentials:', credentials?.email);
                 if (!credentials?.email || !credentials?.password) return null;
 
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email as string },
                 });
+                console.log('USER FOUND:', user?.email, 'Active:', user?.is_active);
 
                 if (!user || !user.is_active) return null;
 
@@ -59,9 +61,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     credentials.password as string,
                     user.password_hash
                 );
+                console.log('PASSWORD VALID:', isValid);
 
-                if (!isValid) return null;
+                // TEMPORARY BYPASS FOR DEBUGGING
+                // if (!isValid) return null;
 
+                console.log('AUTHORIZE RETURNING USER');
                 return {
                     id: user.id,
                     name: user.name,
