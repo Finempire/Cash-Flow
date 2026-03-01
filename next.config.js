@@ -1,5 +1,4 @@
 const nextConfig = {
-    swcMinify: false,
     env: {
         NEXT_TELEMETRY_DISABLED: "1",
     },
