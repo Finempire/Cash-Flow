@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-utils';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { hash } from 'bcryptjs';
+import { hash } from 'bcrypt';
 
 // ============== VENDOR ACTIONS ==============
 
@@ -274,7 +274,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
     const user = await prisma.user.findUnique({ where: { id: session.user.id } });
     if (!user) throw new Error('User not found');
 
-    const { compare } = await import('bcryptjs');
+    const { compare } = await import('bcrypt');
     const isValid = await compare(currentPassword, user.password_hash);
     if (!isValid) throw new Error('Current password is incorrect');
 
