@@ -7,7 +7,7 @@ const PASS = 'Samshek@1998';
 function run() {
     const conn = new Client();
     conn.on('ready', () => {
-        conn.exec('tail -n 100 /root/.pm2/logs/cashflow-error.log', (err, stream) => {
+        conn.exec('tail -n 100 /root/.pm2/logs/cashflow-out.log /root/.pm2/logs/cashflow-error.log', (err, stream) => {
             if (err) throw err;
             stream.on('data', d => process.stdout.write(d.toString()));
             stream.stderr.on('data', d => process.stderr.write(d.toString()));

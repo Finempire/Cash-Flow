@@ -32,13 +32,13 @@ declare module 'next-auth' {
     }
 }
 
+import { authConfig } from './auth.config';
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
+    ...authConfig,
     secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
     trustHost: true,
     session: { strategy: 'jwt' },
-    pages: {
-        signIn: '/login',
-    },
     providers: [
         Credentials({
             name: 'credentials',
@@ -47,13 +47,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 password: { label: 'Password', type: 'password' },
             },
             async authorize(credentials) {
-                console.log('AUTHORIZE CALLED with credentials:', credentials?.email);
                 if (!credentials?.email || !credentials?.password) return null;
 
                 const user = await prisma.user.findUnique({
                     where: { email: credentials.email as string },
                 });
-                console.log('USER FOUND:', user?.email, 'Active:', user?.is_active);
 
                 if (!user || !user.is_active) return null;
 
@@ -61,12 +59,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     credentials.password as string,
                     user.password_hash
                 );
-                console.log('PASSWORD VALID:', isValid);
 
-                // TEMPORARY BYPASS FOR DEBUGGING
-                // if (!isValid) return null;
+                if (!isValid) return null;
 
-                console.log('AUTHORIZE RETURNING USER');
                 return {
                     id: user.id,
                     name: user.name,
@@ -77,20 +72,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
         }),
     ],
-    callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.id = user.id;
-                token.role = (user as { role: Role }).role;
-                token.must_change_password = (user as { must_change_password: boolean }).must_change_password;
-            }
-            return token;
-        },
-        async session({ session, token }) {
-            session.user.id = token.id as string;
-            session.user.role = token.role as Role;
-            session.user.must_change_password = token.must_change_password as boolean;
-            return session;
-        },
-    },
 });
