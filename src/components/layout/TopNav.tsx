@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { signOut } from 'next-auth/react';
 import { Bell, LogOut, User } from 'lucide-react';
-import { getRoleLabel } from '@/lib/auth-utils';
+import { getRoleLabel } from '@/lib/roles';
 import type { Role } from '@prisma/client';
 
 interface TopNavProps {

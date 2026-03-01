@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { getRoleDashboardPath } from '@/lib/auth-utils';
+import { getRoleDashboardPath } from '@/lib/roles';
 import DashboardShell from '@/components/layout/DashboardShell';
 
 export default async function DashboardLayout({
