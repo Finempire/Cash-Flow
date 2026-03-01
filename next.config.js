@@ -3,7 +3,6 @@ const nextConfig = {
         NEXT_TELEMETRY_DISABLED: "1",
     },
     experimental: {
-        serverComponentsExternalPackages: ['@auth/core', 'next-auth'],
         serverActions: {
             bodySizeLimit: '10mb',
         },
