@@ -5,6 +5,70 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PurchaseActions from './PurchaseActions';
+import { Eye, Download, FileText } from 'lucide-react';
+
+function DocumentRow({
+    label,
+    filePath,
+    status,
+}: {
+    label: string;
+    filePath: string | null;
+    status: 'uploaded' | 'pending' | 'awaiting';
+}) {
+    const viewUrl = filePath
+        ? `/api/files?path=${encodeURIComponent(filePath)}`
+        : null;
+    const downloadUrl = filePath
+        ? `/api/files?path=${encodeURIComponent(filePath)}&download=1`
+        : null;
+
+    return (
+        <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+                <FileText size={14} className="text-gray-400 shrink-0" />
+                <div>
+                    <p className="text-xs font-medium text-gray-800">{label}</p>
+                    {filePath && (
+                        <p className="text-2xs text-gray-400 truncate max-w-[160px]">
+                            {filePath.split('/').pop()}
+                        </p>
+                    )}
+                </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+                {status === 'uploaded' && filePath ? (
+                    <>
+                        <span className="badge-green">Uploaded</span>
+                        <a
+                            href={viewUrl!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary text-2xs p-1.5 flex items-center gap-1"
+                            title="View"
+                        >
+                            <Eye size={12} />
+                            <span className="hidden sm:inline">View</span>
+                        </a>
+                        <a
+                            href={downloadUrl!}
+                            download
+                            className="btn-secondary text-2xs p-1.5 flex items-center gap-1"
+                            title="Download"
+                        >
+                            <Download size={12} />
+                            <span className="hidden sm:inline">Download</span>
+                        </a>
+                    </>
+                ) : status === 'pending' ? (
+                    <span className="badge-amber">Pending Upload</span>
+                ) : (
+                    <span className="badge-gray">Awaiting Payment</span>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default async function RunnerPurchaseDetail({
     params,
@@ -29,40 +93,47 @@ export default async function RunnerPurchaseDetail({
 
     if (!purchase) notFound();
 
+    const primaryDoc =
+        purchase.invoice_type_submitted === 'PROVISIONAL'
+            ? purchase.provisional_invoice_path
+            : purchase.tax_invoice_path;
+
     return (
-        <div className="space-y-4 max-w-4xl">
-            <div className="flex items-center justify-between">
+        <div className="space-y-4 max-w-4xl pb-4">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2">
                 <div>
-                    <Link href="/dashboard/runner/my-purchases" className="text-2xs text-blue-600 hover:underline">
-                        Back to My Purchases
+                    <Link
+                        href="/dashboard/runner/my-purchases"
+                        className="text-2xs text-blue-600 hover:underline"
+                    >
+                        ← Back to My Purchases
                     </Link>
-                    <h1 className="text-lg font-semibold text-gray-900 mt-1">{purchase.purchase_no}</h1>
+                    <h1 className="text-lg font-semibold text-gray-900 mt-1">
+                        {purchase.purchase_no}
+                    </h1>
                 </div>
                 <StatusBadge status={purchase.status} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Purchase + Request Details — stacked on mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="card">
                     <div className="card-header">
                         <h2 className="text-xs font-semibold text-gray-700">Purchase Details</h2>
                     </div>
                     <div className="card-body space-y-2">
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Vendor</span>
-                            <span className="font-medium">{purchase.vendor.name}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Invoice No</span>
-                            <span className="font-medium">{purchase.invoice_no}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Invoice Date</span>
-                            <span className="tabular-nums">{formatDateTime(purchase.invoice_date)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Invoice Amount</span>
-                            <span className="font-semibold tabular-nums">{formatCurrency(purchase.invoice_amount)}</span>
-                        </div>
+                        {[
+                            ['Vendor', purchase.vendor.name],
+                            ['Invoice No', purchase.invoice_no],
+                            ['Invoice Date', formatDateTime(purchase.invoice_date)],
+                            ['Invoice Amount', formatCurrency(purchase.invoice_amount)],
+                        ].map(([label, value]) => (
+                            <div key={label} className="flex justify-between text-xs">
+                                <span className="text-gray-500">{label}</span>
+                                <span className="font-medium text-right">{value}</span>
+                            </div>
+                        ))}
                         <div className="flex justify-between text-xs">
                             <span className="text-gray-500">Invoice Type</span>
                             <span className={purchase.invoice_type_submitted === 'TAX' ? 'badge-green' : 'badge-amber'}>
@@ -77,18 +148,16 @@ export default async function RunnerPurchaseDetail({
                         <h2 className="text-xs font-semibold text-gray-700">Request Information</h2>
                     </div>
                     <div className="card-body space-y-2">
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Request</span>
-                            <span className="font-medium">{purchase.request.request_no}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Buyer</span>
-                            <span>{purchase.request.buyer.name}</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Order</span>
-                            <span>{purchase.request.order.order_reference}</span>
-                        </div>
+                        {[
+                            ['Request', purchase.request.request_no],
+                            ['Buyer', purchase.request.buyer.name],
+                            ['Order', purchase.request.order.order_reference],
+                        ].map(([label, value]) => (
+                            <div key={label} className="flex justify-between text-xs">
+                                <span className="text-gray-500">{label}</span>
+                                <span className="font-medium text-right">{value}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -98,50 +167,32 @@ export default async function RunnerPurchaseDetail({
                 <div className="card-header">
                     <h2 className="text-xs font-semibold text-gray-700">Documents</h2>
                 </div>
-                <div className="card-body space-y-2">
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                        <div>
-                            <p className="text-xs font-medium text-gray-800">
-                                {purchase.invoice_type_submitted === 'PROVISIONAL' ? 'Provisional Invoice / Slip' : 'Tax Invoice'}
-                            </p>
-                            <p className="text-2xs text-gray-500">Uploaded at purchase creation</p>
-                        </div>
-                        {(purchase.provisional_invoice_path || purchase.tax_invoice_path) ? (
-                            <span className="badge-green">Uploaded</span>
-                        ) : (
-                            <span className="badge-gray">Not uploaded</span>
-                        )}
-                    </div>
-
-                    <div className="flex items-center justify-between py-1.5 border-b border-gray-100">
-                        <div>
-                            <p className="text-xs font-medium text-gray-800">Payment Receipt</p>
-                            <p className="text-2xs text-gray-500">Uploaded by accountant</p>
-                        </div>
-                        {purchase.payments.length > 0 ? (
-                            <span className="badge-green">Available ({purchase.payments.length})</span>
-                        ) : (
-                            <span className="badge-gray">Awaiting payment</span>
-                        )}
-                    </div>
-
+                <div className="card-body">
+                    <DocumentRow
+                        label={
+                            purchase.invoice_type_submitted === 'PROVISIONAL'
+                                ? 'Provisional Invoice / Slip'
+                                : 'Tax Invoice'
+                        }
+                        filePath={primaryDoc}
+                        status={primaryDoc ? 'uploaded' : 'pending'}
+                    />
+                    <DocumentRow
+                        label="Payment Receipt"
+                        filePath={purchase.payments[0]?.payment_proof_path || null}
+                        status={purchase.payments.length > 0 ? 'uploaded' : 'awaiting'}
+                    />
                     {purchase.invoice_type_submitted === 'PROVISIONAL' && (
-                        <div className="flex items-center justify-between py-1.5">
-                            <div>
-                                <p className="text-xs font-medium text-gray-800">Final GST Tax Invoice</p>
-                                <p className="text-2xs text-gray-500">Required for compliance</p>
-                            </div>
-                            {purchase.tax_invoice_path ? (
-                                <span className="badge-green">Received</span>
-                            ) : (
-                                <span className="badge-amber">Pending Upload</span>
-                            )}
-                        </div>
+                        <DocumentRow
+                            label="Final GST Tax Invoice"
+                            filePath={purchase.tax_invoice_path}
+                            status={purchase.tax_invoice_path ? 'uploaded' : 'pending'}
+                        />
                     )}
                 </div>
             </div>
 
-            {/* Payments */}
+            {/* Payment Records */}
             {purchase.payments.length > 0 && (
                 <div className="card">
                     <div className="card-header">
@@ -154,8 +205,8 @@ export default async function RunnerPurchaseDetail({
                                     <th className="text-left px-3 py-2 font-medium text-gray-600">Date</th>
                                     <th className="text-left px-3 py-2 font-medium text-gray-600">Method</th>
                                     <th className="text-right px-3 py-2 font-medium text-gray-600">Amount</th>
-                                    <th className="text-left px-3 py-2 font-medium text-gray-600">Reference</th>
-                                    <th className="text-left px-3 py-2 font-medium text-gray-600">Recorded By</th>
+                                    <th className="text-left px-3 py-2 font-medium text-gray-600 hidden sm:table-cell">Reference</th>
+                                    <th className="text-left px-3 py-2 font-medium text-gray-600 hidden sm:table-cell">Recorded By</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -163,9 +214,15 @@ export default async function RunnerPurchaseDetail({
                                     <tr key={p.id} className="border-b border-gray-100 even:bg-gray-50">
                                         <td className="px-3 py-2 tabular-nums">{formatDateTime(p.payment_date)}</td>
                                         <td className="px-3 py-2">{p.payment_method}</td>
-                                        <td className="px-3 py-2 text-right tabular-nums font-medium">{formatCurrency(p.amount_paid)}</td>
-                                        <td className="px-3 py-2 text-gray-500">{p.reference_id || '-'}</td>
-                                        <td className="px-3 py-2 text-gray-500">{p.accountant.name}</td>
+                                        <td className="px-3 py-2 text-right tabular-nums font-medium">
+                                            {formatCurrency(p.amount_paid)}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">
+                                            {p.reference_id || '-'}
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">
+                                            {p.accountant.name}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -174,7 +231,7 @@ export default async function RunnerPurchaseDetail({
                 </div>
             )}
 
-            {/* Vendor Confirmation & Tax Invoice Actions */}
+            {/* Actions: Vendor Confirmation + Tax Invoice Upload */}
             <PurchaseActions
                 purchaseId={purchase.id}
                 status={purchase.status}

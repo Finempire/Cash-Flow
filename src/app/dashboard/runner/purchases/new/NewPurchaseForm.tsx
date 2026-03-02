@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createPurchase } from '@/app/actions/purchases';
+import FileUpload from '@/components/ui/FileUpload';
 
 interface Vendor { id: string; name: string; gstin: string; }
 interface RequestLine {
@@ -29,6 +30,8 @@ export default function NewPurchaseForm({
     const [invoiceNo, setInvoiceNo] = useState('');
     const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
     const [invoiceType, setInvoiceType] = useState<'PROVISIONAL' | 'TAX'>('TAX');
+    const [invoiceFilePath, setInvoiceFilePath] = useState<string | null>(null);
+    const [invoiceFileError, setInvoiceFileError] = useState<string | null>(null);
     const [lines, setLines] = useState(
         requestLines.map((l) => ({
             material_id: l.material_id,
@@ -47,10 +50,17 @@ export default function NewPurchaseForm({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
         if (!vendorId || !invoiceNo) {
             toast.error('Vendor and invoice number are required');
             return;
         }
+
+        if (!invoiceFilePath) {
+            setInvoiceFileError('Invoice document is required before submitting');
+            return;
+        }
+        setInvoiceFileError(null);
 
         setLoading(true);
         try {
@@ -61,6 +71,7 @@ export default function NewPurchaseForm({
                 invoice_date: invoiceDate,
                 invoice_amount: totalAmount,
                 invoice_type_submitted: invoiceType,
+                invoice_file_key: invoiceFilePath,
                 lines,
             });
 
@@ -75,34 +86,64 @@ export default function NewPurchaseForm({
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 pb-20 sm:pb-0">
+            {/* Invoice Details */}
             <div className="card">
                 <div className="card-header">
                     <h2 className="text-xs font-semibold text-gray-700">Invoice Details</h2>
                 </div>
                 <div className="card-body">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="label">Vendor</label>
-                            <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} className="select" required>
+                            <select
+                                value={vendorId}
+                                onChange={(e) => setVendorId(e.target.value)}
+                                className="select h-12 sm:h-8"
+                                required
+                            >
                                 <option value="">Select vendor</option>
                                 {vendors.map((v) => (
-                                    <option key={v.id} value={v.id}>{v.name} {v.gstin ? `(${v.gstin})` : ''}</option>
+                                    <option key={v.id} value={v.id}>
+                                        {v.name} {v.gstin ? `(${v.gstin})` : ''}
+                                    </option>
                                 ))}
                             </select>
                         </div>
                         <div>
                             <label className="label">Invoice Number</label>
-                            <input type="text" value={invoiceNo} onChange={(e) => setInvoiceNo(e.target.value)} className="input" required />
+                            <input
+                                type="text"
+                                value={invoiceNo}
+                                onChange={(e) => setInvoiceNo(e.target.value)}
+                                className="input h-12 sm:h-8"
+                                required
+                                placeholder="e.g. INV-2024-001"
+                            />
                         </div>
                         <div>
                             <label className="label">Invoice Date</label>
-                            <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="input" required />
+                            <input
+                                type="date"
+                                value={invoiceDate}
+                                onChange={(e) => setInvoiceDate(e.target.value)}
+                                className="input h-12 sm:h-8"
+                                required
+                            />
                         </div>
                         <div>
                             <label className="label">Invoice Type</label>
-                            <select value={invoiceType} onChange={(e) => setInvoiceType(e.target.value as 'PROVISIONAL' | 'TAX')} className="select" required>
-                                <option value="TAX">Tax Invoice</option>
+                            <select
+                                value={invoiceType}
+                                onChange={(e) => {
+                                    setInvoiceType(e.target.value as 'PROVISIONAL' | 'TAX');
+                                    setInvoiceFilePath(null);
+                                    setInvoiceFileError(null);
+                                }}
+                                className="select h-12 sm:h-8"
+                                required
+                            >
+                                <option value="TAX">Tax Invoice / Final GST Bill</option>
                                 <option value="PROVISIONAL">Provisional Invoice / Slip</option>
                             </select>
                         </div>
@@ -110,6 +151,31 @@ export default function NewPurchaseForm({
                 </div>
             </div>
 
+            {/* Invoice Document Upload */}
+            <div className="card">
+                <div className="card-header">
+                    <h2 className="text-xs font-semibold text-gray-700">Invoice Document</h2>
+                </div>
+                <div className="card-body">
+                    <FileUpload
+                        type={invoiceType === 'PROVISIONAL' ? 'PROVISIONAL_INVOICE' : 'TAX_INVOICE'}
+                        onUploaded={(path) => {
+                            setInvoiceFilePath(path);
+                            setInvoiceFileError(null);
+                        }}
+                        label={invoiceType === 'PROVISIONAL' ? 'Provisional Invoice / Slip' : 'Tax Invoice / Final GST Bill'}
+                        required
+                        disabled={loading}
+                    />
+                    {invoiceFileError && (
+                        <p className="mt-2 text-xs text-red-600 font-medium">
+                            ⚠ {invoiceFileError}
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Material Lines */}
             <div className="card">
                 <div className="card-header">
                     <h2 className="text-xs font-semibold text-gray-700">Material Lines</h2>
@@ -120,9 +186,9 @@ export default function NewPurchaseForm({
                             <tr className="bg-gray-50 border-b border-gray-200">
                                 <th className="text-left px-3 py-2 font-medium text-gray-600">Material</th>
                                 <th className="text-left px-3 py-2 font-medium text-gray-600">Unit</th>
-                                <th className="text-right px-3 py-2 font-medium text-gray-600">Expected Qty</th>
+                                <th className="text-right px-3 py-2 font-medium text-gray-600">Exp Qty</th>
                                 <th className="text-right px-3 py-2 font-medium text-gray-600">Actual Qty</th>
-                                <th className="text-right px-3 py-2 font-medium text-gray-600">Expected Rate</th>
+                                <th className="text-right px-3 py-2 font-medium text-gray-600">Exp Rate</th>
                                 <th className="text-right px-3 py-2 font-medium text-gray-600">Actual Rate</th>
                                 <th className="text-right px-3 py-2 font-medium text-gray-600">Amount</th>
                             </tr>
@@ -176,11 +242,23 @@ export default function NewPurchaseForm({
                 </div>
             </div>
 
-            <div className="flex justify-end gap-2">
+            {/* Desktop buttons */}
+            <div className="hidden sm:flex justify-end gap-2">
                 <button type="button" onClick={() => router.back()} className="btn-secondary" disabled={loading}>
                     Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={loading}>
+                    {loading ? 'Submitting...' : 'Submit Purchase'}
+                </button>
+            </div>
+
+            {/* Mobile fixed bottom button */}
+            <div className="fixed bottom-0 left-0 right-0 sm:hidden p-3 bg-white border-t border-gray-200 z-40">
+                <button
+                    type="submit"
+                    className="w-full h-14 bg-blue-600 text-white rounded-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading}
+                >
                     {loading ? 'Submitting...' : 'Submit Purchase'}
                 </button>
             </div>

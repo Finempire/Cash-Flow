@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { updateVendorConfirmation, uploadTaxInvoice } from '@/app/actions/purchases';
+import FileUpload from '@/components/ui/FileUpload';
 
 interface Props {
     purchaseId: string;
@@ -30,6 +31,8 @@ export default function PurchaseActions({
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [remark, setRemark] = useState('');
+    const [taxInvoicePath, setTaxInvoicePath] = useState<string | null>(null);
+    const [taxInvoiceError, setTaxInvoiceError] = useState<string | null>(null);
 
     if (!isAssignedRunner) return null;
 
@@ -66,13 +69,14 @@ export default function PurchaseActions({
         }
     };
 
-    const handleTaxInvoiceUpload = async () => {
-        // For production, this would use pre-signed URL upload
-        // Simplified: generate a placeholder key
-        const key = `tax-invoices/${purchaseId}/${Date.now()}.pdf`;
+    const handleTaxInvoiceSubmit = async () => {
+        if (!taxInvoicePath) {
+            setTaxInvoiceError('Please upload the Tax Invoice file first');
+            return;
+        }
         setLoading(true);
         try {
-            await uploadTaxInvoice(purchaseId, key);
+            await uploadTaxInvoice(purchaseId, taxInvoicePath);
             toast.success('Tax invoice uploaded. Purchase completed.');
             router.refresh();
         } catch (err) {
@@ -94,12 +98,11 @@ export default function PurchaseActions({
 
     return (
         <div className="space-y-4">
+            {/* Vendor Confirmation Section */}
             {showVendorSection && (
                 <div className="card">
                     <div className="card-header">
-                        <h2 className="text-xs font-semibold text-gray-700">
-                            Vendor Confirmation
-                        </h2>
+                        <h2 className="text-xs font-semibold text-gray-700">Vendor Confirmation</h2>
                     </div>
                     <div className="card-body space-y-3">
                         <p className="text-xs text-gray-600">
@@ -115,20 +118,22 @@ export default function PurchaseActions({
                                 placeholder="Any observation or note..."
                             />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             {vendorConfirmation?.status === 'NOT_CONFIRMED' && (
                                 <button
+                                    type="button"
                                     onClick={handleShowToVendor}
                                     disabled={loading}
-                                    className="btn-primary"
+                                    className="btn-primary w-full sm:w-auto h-12 sm:h-auto"
                                 >
                                     {loading ? 'Updating...' : 'Mark as Shown to Vendor'}
                                 </button>
                             )}
                             <button
+                                type="button"
                                 onClick={handleVendorConfirmed}
                                 disabled={loading}
-                                className="btn-success"
+                                className="btn-success w-full sm:w-auto h-12 sm:h-auto"
                             >
                                 {loading ? 'Confirming...' : 'Vendor Confirmed'}
                             </button>
@@ -137,24 +142,40 @@ export default function PurchaseActions({
                 </div>
             )}
 
+            {/* Tax Invoice Upload Section */}
             {showTaxInvoiceSection && (
                 <div className="card border-amber-200">
                     <div className="card-header bg-amber-50">
                         <h2 className="text-xs font-semibold text-amber-800">
-                            Upload Final GST Tax Invoice
+                            ⚠ Final Tax Invoice Required
                         </h2>
                     </div>
                     <div className="card-body space-y-3">
                         <p className="text-xs text-gray-600">
-                            The initial invoice was provisional. Upload the final GST Tax
-                            Invoice received from the vendor.
+                            The initial invoice was provisional. Upload the final GST Tax Invoice
+                            received from the vendor.
                         </p>
-                        <button
-                            onClick={handleTaxInvoiceUpload}
+                        <FileUpload
+                            type="TAX_INVOICE"
+                            purchaseId={purchaseId}
+                            onUploaded={(path) => {
+                                setTaxInvoicePath(path);
+                                setTaxInvoiceError(null);
+                            }}
+                            label="Final GST Tax Invoice"
+                            required
                             disabled={loading}
-                            className="btn-primary"
+                        />
+                        {taxInvoiceError && (
+                            <p className="text-xs text-red-600">⚠ {taxInvoiceError}</p>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleTaxInvoiceSubmit}
+                            disabled={loading || !taxInvoicePath}
+                            className="btn-primary w-full h-12 sm:h-auto sm:w-auto"
                         >
-                            {loading ? 'Uploading...' : 'Upload Tax Invoice'}
+                            {loading ? 'Submitting...' : 'Submit Tax Invoice'}
                         </button>
                     </div>
                 </div>

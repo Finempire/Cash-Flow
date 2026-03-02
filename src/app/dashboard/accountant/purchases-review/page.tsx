@@ -35,8 +35,8 @@ export default async function PurchasesReview() {
 
                     return (
                         <div key={p.id} className="card">
-                            <div className="card-header flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                            <div className="card-header flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-3 flex-wrap">
                                     <Link href={`/dashboard/accountant/transactions/${p.id}`} className="text-sm font-semibold text-blue-600 hover:underline">
                                         {p.purchase_no}
                                     </Link>
@@ -50,7 +50,8 @@ export default async function PurchasesReview() {
                                 </span>
                             </div>
                             <div className="card-body">
-                                <div className="grid grid-cols-4 gap-3 text-xs mb-3">
+                                {/* Mobile: 2-col grid; Desktop: 4-col */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
                                     <div>
                                         <span className="text-gray-500">Runner:</span>{' '}
                                         <span className="font-medium">{p.runner.name}</span>
@@ -69,7 +70,7 @@ export default async function PurchasesReview() {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 text-xs mb-3 p-2 bg-gray-50 rounded">
+                                <div className="flex flex-wrap items-center gap-4 text-xs mb-3 p-2 bg-gray-50 rounded">
                                     <div>
                                         <span className="text-gray-500">Expected:</span>{' '}
                                         <span className="tabular-nums">{formatCurrency(expectedTotal)}</span>

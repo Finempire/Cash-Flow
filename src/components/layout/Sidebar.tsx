@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -14,13 +14,12 @@ import {
     Package,
     Tag,
     BarChart3,
-    ChevronLeft,
-    ChevronRight,
     Clock,
     CheckCircle2,
     Bell,
     Truck,
     ListFilter,
+    X,
 } from 'lucide-react';
 
 interface NavItem {
@@ -31,6 +30,8 @@ interface NavItem {
 
 interface SidebarProps {
     role: string;
+    mobileOpen: boolean;
+    onMobileClose: () => void;
 }
 
 function getNavItems(role: string): NavItem[] {
@@ -71,62 +72,83 @@ function getNavItems(role: string): NavItem[] {
     }
 }
 
-export default function Sidebar({ role }: SidebarProps) {
+export default function Sidebar({ role, mobileOpen, onMobileClose }: SidebarProps) {
     const pathname = usePathname();
-    const [collapsed, setCollapsed] = useState(false);
     const navItems = getNavItems(role);
 
+    // Close drawer on route change
+    useEffect(() => {
+        onMobileClose();
+    }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const NavLinks = ({ onClick }: { onClick?: () => void }) => (
+        <nav className="flex-1 py-1.5 overflow-y-auto scrollbar-thin">
+            {navItems.map((item) => {
+                const isActive =
+                    pathname === item.href ||
+                    (item.href !== '/dashboard/manager' &&
+                        item.href !== '/dashboard/runner' &&
+                        item.href !== '/dashboard/accountant' &&
+                        item.href !== '/dashboard/ceo' &&
+                        pathname.startsWith(item.href));
+
+                return (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onClick}
+                        className={`flex items-center gap-2.5 px-3 py-3 md:py-1.5 mx-1 rounded text-xs transition-colors ${isActive
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                    >
+                        <span className="shrink-0">{item.icon}</span>
+                        <span className="truncate">{item.label}</span>
+                    </Link>
+                );
+            })}
+        </nav>
+    );
+
     return (
-        <aside
-            className={`fixed left-0 top-0 h-full bg-white border-r border-gray-200 shadow-sm transition-all duration-200 z-30 flex flex-col ${collapsed ? 'w-12' : 'w-56'
-                }`}
-        >
-            <div className="flex items-center justify-between px-3 h-11 border-b border-gray-200 shrink-0">
-                {!collapsed && (
-                    <span className="text-xs font-semibold text-gray-800 truncate">
-                        Petty Cash System
-                    </span>
-                )}
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="p-1 rounded hover:bg-gray-100 text-gray-500"
-                >
-                    {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                </button>
-            </div>
+        <>
+            {/* ── Desktop sidebar (md+) ── */}
+            <aside className="hidden md:flex fixed left-0 top-0 h-full w-56 bg-white border-r border-gray-200 shadow-sm z-30 flex-col">
+                <div className="flex items-center justify-between px-3 h-11 border-b border-gray-200 shrink-0">
+                    <span className="text-xs font-semibold text-gray-800 truncate">Petty Cash System</span>
+                </div>
+                <NavLinks />
+                <div className="px-3 py-2 border-t border-gray-200 shrink-0">
+                    <p className="text-2xs text-gray-400">v1.0.0</p>
+                </div>
+            </aside>
 
-            <nav className="flex-1 py-1.5 overflow-y-auto scrollbar-thin">
-                {navItems.map((item) => {
-                    const isActive =
-                        pathname === item.href ||
-                        (item.href !== '/dashboard/manager' &&
-                            item.href !== '/dashboard/runner' &&
-                            item.href !== '/dashboard/accountant' &&
-                            item.href !== '/dashboard/ceo' &&
-                            pathname.startsWith(item.href));
-
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex items-center gap-2.5 px-3 py-1.5 mx-1 rounded text-xs transition-colors ${isActive
-                                    ? 'bg-blue-50 text-blue-700 font-medium'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                            title={collapsed ? item.label : undefined}
-                        >
-                            <span className="shrink-0">{item.icon}</span>
-                            {!collapsed && <span className="truncate">{item.label}</span>}
-                        </Link>
-                    );
-                })}
-            </nav>
-
-            <div className="px-3 py-2 border-t border-gray-200 shrink-0">
-                {!collapsed && (
-                    <p className="text-2xs text-gray-400 truncate">v1.0.0</p>
-                )}
-            </div>
-        </aside>
+            {/* ── Mobile slide-over drawer ── */}
+            {mobileOpen && (
+                <>
+                    {/* Dark overlay */}
+                    <div
+                        className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                        onClick={onMobileClose}
+                    />
+                    {/* Drawer panel */}
+                    <aside className="fixed left-0 top-0 h-full w-72 bg-white z-50 md:hidden flex flex-col shadow-xl">
+                        <div className="flex items-center justify-between px-4 h-14 border-b border-gray-200 shrink-0">
+                            <span className="text-sm font-semibold text-gray-800">Petty Cash System</span>
+                            <button
+                                onClick={onMobileClose}
+                                className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <NavLinks onClick={onMobileClose} />
+                        <div className="px-4 py-3 border-t border-gray-200 shrink-0">
+                            <p className="text-2xs text-gray-400">v1.0.0</p>
+                        </div>
+                    </aside>
+                </>
+            )}
+        </>
     );
 }

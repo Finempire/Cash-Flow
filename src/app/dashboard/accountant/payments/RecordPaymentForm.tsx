@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { recordPayment } from '@/app/actions/purchases';
+import FileUpload from '@/components/ui/FileUpload';
 
 export default function RecordPaymentForm({
     purchaseId,
@@ -22,12 +23,20 @@ export default function RecordPaymentForm({
     const [amountPaid, setAmountPaid] = useState(remainingAmount);
     const [referenceId, setReferenceId] = useState('');
     const [notes, setNotes] = useState('');
+    const [paymentProofPath, setPaymentProofPath] = useState<string | null>(null);
+    const [proofError, setProofError] = useState<string | null>(null);
 
     const handleSubmit = async () => {
         if (amountPaid <= 0) {
             toast.error('Amount must be positive');
             return;
         }
+
+        if (!paymentProofPath) {
+            setProofError('Payment proof is required before recording payment');
+            return;
+        }
+        setProofError(null);
 
         setLoading(true);
         try {
@@ -37,7 +46,7 @@ export default function RecordPaymentForm({
                 payment_method: paymentMethod,
                 amount_paid: amountPaid,
                 reference_id: referenceId || undefined,
-                payment_proof_key: `payment-proofs/${purchaseId}/${Date.now()}.pdf`,
+                payment_proof_key: paymentProofPath,
                 notes: notes || undefined,
             });
             toast.success(`Payment recorded for ${purchaseNo}`);
@@ -51,22 +60,36 @@ export default function RecordPaymentForm({
 
     if (!expanded) {
         return (
-            <button onClick={() => setExpanded(true)} className="btn-primary">
+            <button
+                onClick={() => setExpanded(true)}
+                className="btn-primary w-full sm:w-auto h-11 sm:h-auto"
+            >
                 Record Payment
             </button>
         );
     }
 
     return (
-        <div className="space-y-3 p-3 bg-gray-50 rounded border border-gray-200">
-            <div className="grid grid-cols-4 gap-3">
+        <div className="space-y-4 p-3 bg-gray-50 rounded border border-gray-200">
+            {/* Payment Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
                     <label className="label">Payment Date</label>
-                    <input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="input" required />
+                    <input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className="input h-12 sm:h-8"
+                        required
+                    />
                 </div>
                 <div>
                     <label className="label">Method</label>
-                    <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)} className="select">
+                    <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value as typeof paymentMethod)}
+                        className="select h-12 sm:h-8"
+                    >
                         <option value="CASH">Cash</option>
                         <option value="UPI">UPI</option>
                         <option value="BANK_TRANSFER">Bank Transfer</option>
@@ -79,7 +102,7 @@ export default function RecordPaymentForm({
                         type="number"
                         value={amountPaid}
                         onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-                        className="input tabular-nums"
+                        className="input tabular-nums h-12 sm:h-8"
                         min="0.01"
                         step="0.01"
                         max={remainingAmount}
@@ -88,18 +111,61 @@ export default function RecordPaymentForm({
                 </div>
                 <div>
                     <label className="label">Reference ID</label>
-                    <input type="text" value={referenceId} onChange={(e) => setReferenceId(e.target.value)} className="input" placeholder="UPI Ref / Cheque No" />
+                    <input
+                        type="text"
+                        value={referenceId}
+                        onChange={(e) => setReferenceId(e.target.value)}
+                        className="input h-12 sm:h-8"
+                        placeholder="UPI Ref / Cheque No"
+                    />
                 </div>
             </div>
+
             <div>
                 <label className="label">Notes</label>
-                <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder="Payment notes..." />
+                <input
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="input h-12 sm:h-8"
+                    placeholder="Payment notes..."
+                />
             </div>
-            <div className="flex gap-2">
-                <button onClick={handleSubmit} disabled={loading} className="btn-success">
+
+            {/* Payment Proof Upload — required */}
+            <div>
+                <FileUpload
+                    type="PAYMENT_PROOF"
+                    purchaseId={purchaseId}
+                    onUploaded={(path) => {
+                        setPaymentProofPath(path);
+                        setProofError(null);
+                    }}
+                    label="Payment Proof / Receipt"
+                    required
+                    disabled={loading}
+                />
+                {proofError && (
+                    <p className="mt-1 text-xs text-red-600 font-medium">⚠ {proofError}</p>
+                )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="btn-success w-full sm:w-auto h-12 sm:h-auto"
+                >
                     {loading ? 'Recording...' : 'Confirm Payment'}
                 </button>
-                <button onClick={() => setExpanded(false)} disabled={loading} className="btn-secondary">
+                <button
+                    type="button"
+                    onClick={() => setExpanded(false)}
+                    disabled={loading}
+                    className="btn-secondary w-full sm:w-auto h-12 sm:h-auto"
+                >
                     Cancel
                 </button>
             </div>
