@@ -1,37 +1,30 @@
 import { prisma } from '@/lib/prisma';
 import { requireRole } from '@/lib/auth-utils';
-import MasterCrudPage from '@/components/master/MasterCrudPage';
+import MaterialsMasterClient from './MaterialsMasterClient';
 
 export default async function MaterialsPage() {
     await requireRole('ACCOUNTANT');
-    const materials = await prisma.material.findMany({ orderBy: { sku_code: 'asc' } });
+
+    const materials = await prisma.material.findMany({
+        orderBy: { created_at: 'desc' },
+    });
 
     return (
-        <MasterCrudPage
-            title="Materials"
-            entityType="material"
-            data={materials.map((m) => ({
-                id: m.id,
-                sku_code: m.sku_code,
-                description: m.description,
-                category: m.category || '',
-                unit_of_measure: m.unit_of_measure,
-                default_rate: m.default_rate ? Number(m.default_rate) : '',
-            }))}
-            columns={[
-                { key: 'sku_code', label: 'SKU Code' },
-                { key: 'description', label: 'Description' },
-                { key: 'category', label: 'Category' },
-                { key: 'unit_of_measure', label: 'UoM' },
-                { key: 'default_rate', label: 'Default Rate' },
-            ]}
-            fields={[
-                { key: 'sku_code', label: 'SKU Code', required: true },
-                { key: 'description', label: 'Description', required: true },
-                { key: 'category', label: 'Category' },
-                { key: 'unit_of_measure', label: 'Unit of Measure', required: true },
-                { key: 'default_rate', label: 'Default Rate', type: 'number' },
-            ]}
-        />
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h1 className="text-lg font-semibold text-gray-900">Materials</h1>
+            </div>
+            <MaterialsMasterClient
+                data={materials.map((m) => ({
+                    id: m.id,
+                    sku_code: m.sku_code,
+                    description: m.description,
+                    category: m.category || '',
+                    unit_of_measure: m.unit_of_measure,
+                    default_rate: m.default_rate ? Number(m.default_rate) : '',
+                    created_inline: m.created_inline,
+                }))}
+            />
+        </div>
     );
 }
