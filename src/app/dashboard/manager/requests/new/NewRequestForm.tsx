@@ -18,22 +18,15 @@ interface Line {
     description: string;
     quantity: number;
     expected_rate: number;
-    preferred_vendor_id: string; // '' = Any Vendor
 }
 
 const ADD_NEW_MATERIAL = '__ADD_NEW_MATERIAL__';
 const ADD_NEW_VENDOR = '__ADD_NEW_VENDOR__';
 
 export default function NewRequestForm({
-    buyers,
-    orders,
-    materials: initialMaterials,
-    vendors: initialVendors,
+    buyers, orders, materials: initialMaterials, vendors: initialVendors,
 }: {
-    buyers: Buyer[];
-    orders: OrderItem[];
-    materials: MaterialItem[];
-    vendors: VendorItem[];
+    buyers: Buyer[]; orders: OrderItem[]; materials: MaterialItem[]; vendors: VendorItem[];
 }) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -41,39 +34,33 @@ export default function NewRequestForm({
     const [orderId, setOrderId] = useState('');
     const [storeLocation, setStoreLocation] = useState('');
     const [expectedDate, setExpectedDate] = useState('');
+    const [preferredVendorId, setPreferredVendorId] = useState('');
     const [remarks, setRemarks] = useState('');
     const [lines, setLines] = useState<Line[]>([
-        { material_id: '', description: '', quantity: 0, expected_rate: 0, preferred_vendor_id: '' },
+        { material_id: '', description: '', quantity: 0, expected_rate: 0 },
     ]);
 
     const [materials, setMaterials] = useState<MaterialItem[]>(initialMaterials);
     const [vendors, setVendors] = useState<VendorItem[]>(initialVendors);
-
     const [materialModalIdx, setMaterialModalIdx] = useState<number | null>(null);
-    const [vendorModalIdx, setVendorModalIdx] = useState<number | null>(null);
+    const [showVendorModal, setShowVendorModal] = useState(false);
 
     const filteredOrders = orders.filter((o) => !buyerId || o.buyer_id === buyerId);
 
     const addLine = () => {
-        setLines([...lines, { material_id: '', description: '', quantity: 0, expected_rate: 0, preferred_vendor_id: '' }]);
+        setLines([...lines, { material_id: '', description: '', quantity: 0, expected_rate: 0 }]);
     };
-
     const removeLine = (index: number) => {
         if (lines.length > 1) setLines(lines.filter((_, i) => i !== index));
     };
 
     const updateLine = (index: number, field: keyof Line, value: string | number) => {
         const updated = [...lines];
-
         if (field === 'material_id') {
             const strVal = value as string;
             if (strVal === ADD_NEW_MATERIAL) { setMaterialModalIdx(index); updated[index] = { ...updated[index], material_id: '' }; setLines(updated); return; }
             const mat = materials.find((m) => m.id === strVal);
             updated[index] = { ...updated[index], material_id: strVal, description: mat?.description || '', expected_rate: mat?.default_rate || updated[index].expected_rate };
-        } else if (field === 'preferred_vendor_id') {
-            const strVal = value as string;
-            if (strVal === ADD_NEW_VENDOR) { setVendorModalIdx(index); updated[index] = { ...updated[index], preferred_vendor_id: '' }; setLines(updated); return; }
-            updated[index] = { ...updated[index], preferred_vendor_id: strVal };
         } else {
             updated[index] = { ...updated[index], [field]: value };
         }
@@ -90,14 +77,15 @@ export default function NewRequestForm({
         setMaterialModalIdx(null);
     };
 
+    const handleVendorChange = (val: string) => {
+        if (val === ADD_NEW_VENDOR) { setShowVendorModal(true); return; }
+        setPreferredVendorId(val);
+    };
+
     const handleVendorCreated = (vendor: CreatedVendor) => {
         setVendors((prev) => [...prev, vendor]);
-        if (vendorModalIdx !== null) {
-            const updated = [...lines];
-            updated[vendorModalIdx] = { ...updated[vendorModalIdx], preferred_vendor_id: vendor.id };
-            setLines(updated);
-        }
-        setVendorModalIdx(null);
+        setPreferredVendorId(vendor.id);
+        setShowVendorModal(false);
     };
 
     const totalAmount = lines.reduce((sum, l) => sum + l.quantity * l.expected_rate, 0);
@@ -112,6 +100,7 @@ export default function NewRequestForm({
         try {
             const result = await createMaterialRequest({
                 buyer_id: buyerId, order_id: orderId,
+                preferred_vendor_id: preferredVendorId || undefined,
                 store_location: storeLocation || undefined,
                 expected_date: expectedDate || undefined,
                 remarks: remarks || undefined,
@@ -120,7 +109,6 @@ export default function NewRequestForm({
                     description: l.description || undefined,
                     quantity: l.quantity,
                     expected_rate: l.expected_rate,
-                    preferred_vendor_id: l.preferred_vendor_id || undefined,
                 })),
             });
             toast.success(`Request ${result.request_no} created`);
@@ -128,14 +116,12 @@ export default function NewRequestForm({
             router.refresh();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Failed to create request');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     return (
         <>
-            <form onSubmit={handleSubmit} className="space-y-4 max-w-5xl">
+            <form onSubmit={handleSubmit} className="space-y-4 max-w-4xl">
                 <div className="card">
                     <div className="card-header">
                         <h2 className="text-xs font-semibold text-gray-700">Request Details</h2>
@@ -164,9 +150,18 @@ export default function NewRequestForm({
                                 <label className="label">Expected Date</label>
                                 <input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className="input" />
                             </div>
-                            <div className="col-span-2">
+                            <div>
+                                <label className="label">Preferred Vendor</label>
+                                <select value={preferredVendorId} onChange={(e) => handleVendorChange(e.target.value)} className="select">
+                                    <option value="">Any Vendor</option>
+                                    {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}{v.gstin ? ` (${v.gstin})` : ''}</option>)}
+                                    <option disabled>──────────────</option>
+                                    <option value={ADD_NEW_VENDOR}>+ Add New Vendor</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label className="label">Remarks</label>
-                                <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} className="textarea" rows={2} placeholder="Additional notes..." />
+                                <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} className="textarea" rows={1} placeholder="Additional notes..." />
                             </div>
                         </div>
                     </div>
@@ -183,13 +178,12 @@ export default function NewRequestForm({
                         <table className="w-full text-xs">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-1/4">Material</th>
+                                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-1/3">Material</th>
                                     <th className="text-left px-3 py-2 font-medium text-gray-600">Description</th>
-                                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-40">Preferred Vendor</th>
-                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-20">Qty</th>
-                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Rate</th>
-                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Amount</th>
-                                    <th className="w-8"></th>
+                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Qty</th>
+                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-28">Rate</th>
+                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-28">Amount</th>
+                                    <th className="w-10"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -205,14 +199,6 @@ export default function NewRequestForm({
                                         </td>
                                         <td className="px-3 py-1.5">
                                             <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} className="input text-xs" placeholder="Optional" />
-                                        </td>
-                                        <td className="px-3 py-1.5">
-                                            <select value={line.preferred_vendor_id} onChange={(e) => updateLine(i, 'preferred_vendor_id', e.target.value)} className="select text-xs">
-                                                <option value="">Any Vendor</option>
-                                                {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-                                                <option disabled>──────────────</option>
-                                                <option value={ADD_NEW_VENDOR}>+ Add New Vendor</option>
-                                            </select>
                                         </td>
                                         <td className="px-3 py-1.5">
                                             <input type="number" value={line.quantity || ''} onChange={(e) => updateLine(i, 'quantity', parseFloat(e.target.value) || 0)} className="input text-xs text-right tabular-nums" min="0.01" step="0.01" required />
@@ -233,7 +219,7 @@ export default function NewRequestForm({
                             </tbody>
                             <tfoot>
                                 <tr className="bg-gray-50 border-t border-gray-200">
-                                    <td colSpan={5} className="px-3 py-2 text-right font-medium text-gray-700">Total Expected Amount:</td>
+                                    <td colSpan={4} className="px-3 py-2 text-right font-medium text-gray-700">Total Expected Amount:</td>
                                     <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{totalAmount.toFixed(2)}</td>
                                     <td></td>
                                 </tr>
@@ -251,8 +237,8 @@ export default function NewRequestForm({
             {materialModalIdx !== null && (
                 <AddMaterialModal onCreated={handleMaterialCreated} onClose={() => setMaterialModalIdx(null)} />
             )}
-            {vendorModalIdx !== null && (
-                <AddVendorModal stage="MATERIAL_REQUEST" onCreated={handleVendorCreated} onClose={() => setVendorModalIdx(null)} />
+            {showVendorModal && (
+                <AddVendorModal stage="MATERIAL_REQUEST" onCreated={handleVendorCreated} onClose={() => setShowVendorModal(false)} />
             )}
         </>
     );

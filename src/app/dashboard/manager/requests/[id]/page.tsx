@@ -19,6 +19,7 @@ export default async function RequestDetail({
             buyer: true,
             order: true,
             manager: true,
+            preferred_vendor: true,
             lines: { include: { material: true } },
             purchases: {
                 include: {
@@ -86,6 +87,12 @@ export default async function RequestDetail({
                         <div className="flex justify-between text-xs">
                             <span className="text-gray-500">Expected Date</span>
                             <span className="tabular-nums">{formatDate(request.expected_date)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Preferred Vendor</span>
+                            <span className={request.preferred_vendor ? 'font-medium' : 'text-gray-400 italic'}>
+                                {request.preferred_vendor?.name ?? 'Any Vendor'}
+                            </span>
                         </div>
                         <div className="flex justify-between text-xs">
                             <span className="text-gray-500">Created</span>

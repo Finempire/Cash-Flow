@@ -60,12 +60,12 @@ const MaterialRequestLineSchema = z.object({
     description: z.string().optional(),
     quantity: z.number().positive(),
     expected_rate: z.number().positive(),
-    preferred_vendor_id: z.string().uuid().optional(),
 });
 
 const CreateRequestSchema = z.object({
     buyer_id: z.string().uuid(),
     order_id: z.string().uuid(),
+    preferred_vendor_id: z.string().uuid().optional(),
     store_location: z.string().optional(),
     expected_date: z.string().optional(),
     remarks: z.string().optional(),
@@ -84,6 +84,7 @@ export async function createMaterialRequest(formData: z.infer<typeof CreateReque
             manager_id: session.user.id,
             buyer_id: data.buyer_id,
             order_id: data.order_id,
+            preferred_vendor_id: data.preferred_vendor_id || null,
             store_location: data.store_location || null,
             expected_date: data.expected_date ? new Date(data.expected_date) : null,
             remarks: data.remarks || null,
@@ -95,7 +96,6 @@ export async function createMaterialRequest(formData: z.infer<typeof CreateReque
                     quantity: line.quantity,
                     expected_rate: line.expected_rate,
                     expected_amount: line.quantity * line.expected_rate,
-                    preferred_vendor_id: line.preferred_vendor_id || null,
                 })),
             },
         },

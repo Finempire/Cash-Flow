@@ -81,7 +81,7 @@ export default async function TransactionDetail({
     const purchase = await (prisma.purchase.findUnique as any)({
         where: { id: params.id },
         include: {
-            request: { include: { buyer: true, order: true, manager: true, lines: { include: { material: true, preferred_vendor: true } } } },
+            request: { include: { buyer: true, order: true, manager: true, preferred_vendor: true, lines: { include: { material: true } } } },
             runner: true,
             vendor: true,
             lines: { include: { material: true } },
@@ -108,8 +108,8 @@ export default async function TransactionDetail({
 
     const userRole = session.user.role;
 
-    // Preferred vendor: use first request line's preferred vendor (if set)
-    const preferredVendor = purchase.request.lines[0]?.preferred_vendor ?? null;
+    // Preferred vendor from request level
+    const preferredVendor = purchase.request.preferred_vendor ?? null;
     const vendorDiffers = preferredVendor && preferredVendor.id !== purchase.vendor_id;
 
     return (

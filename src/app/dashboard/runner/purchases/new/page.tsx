@@ -13,13 +13,13 @@ export default async function NewPurchase({
     const requestId = searchParams.request_id;
     if (!requestId) redirect('/dashboard/runner/pending');
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const request = await (prisma.materialRequest.findUnique as any)({
+    const request = await prisma.materialRequest.findUnique({
         where: { id: requestId },
         include: {
             buyer: true,
             order: true,
-            lines: { include: { material: true, preferred_vendor: true } },
+            preferred_vendor: true,
+            lines: { include: { material: true } },
         },
     });
 
@@ -44,18 +44,15 @@ export default async function NewPurchase({
             </div>
             <NewPurchaseForm
                 requestId={request.id}
-                vendors={vendors.map((v: { id: string; name: string; gstin: string | null }) => ({ id: v.id, name: v.name, gstin: v.gstin || '' }))}
-                requestLines={request.lines.map((l: {
-                    material_id: string; material: { sku_code: string; description: string; unit_of_measure: string };
-                    quantity: number; expected_rate: number; preferred_vendor_id: string | null; preferred_vendor: { name: string } | null;
-                }) => ({
+                vendors={vendors.map((v) => ({ id: v.id, name: v.name, gstin: v.gstin || '' }))}
+                preferredVendorId={request.preferred_vendor_id}
+                preferredVendorName={request.preferred_vendor?.name ?? null}
+                requestLines={request.lines.map((l) => ({
                     material_id: l.material_id,
                     material_name: `${l.material.sku_code} - ${l.material.description}`,
                     unit: l.material.unit_of_measure,
                     expected_qty: Number(l.quantity),
                     expected_rate: Number(l.expected_rate),
-                    preferred_vendor_id: l.preferred_vendor_id,
-                    preferred_vendor_name: l.preferred_vendor?.name ?? null,
                 }))}
             />
         </div>

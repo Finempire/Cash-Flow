@@ -14,8 +14,6 @@ interface RequestLine {
     unit: string;
     expected_qty: number;
     expected_rate: number;
-    preferred_vendor_id: string | null;
-    preferred_vendor_name: string | null;
 }
 
 const ADD_NEW_VENDOR = '__ADD_NEW_VENDOR__';
@@ -23,18 +21,19 @@ const ADD_NEW_VENDOR = '__ADD_NEW_VENDOR__';
 export default function NewPurchaseForm({
     requestId,
     vendors: initialVendors,
+    preferredVendorId,
+    preferredVendorName,
     requestLines,
 }: {
     requestId: string;
     vendors: Vendor[];
+    preferredVendorId: string | null;
+    preferredVendorName: string | null;
     requestLines: RequestLine[];
 }) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
-
-    // Determine a default vendor from first line's preferred vendor
-    const firstPreferred = requestLines[0]?.preferred_vendor_id || '';
-    const [vendorId, setVendorId] = useState(firstPreferred);
+    const [vendorId, setVendorId] = useState(preferredVendorId || '');
     const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
     const [showVendorModal, setShowVendorModal] = useState(false);
 
@@ -66,11 +65,6 @@ export default function NewPurchaseForm({
         setShowVendorModal(false);
     };
 
-    // Build preferred vendor info banner
-    const preferredVendorId = requestLines[0]?.preferred_vendor_id;
-    const preferredVendorName = requestLines[0]?.preferred_vendor_name;
-    const showBanner = !!preferredVendorId && !!preferredVendorName;
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!vendorId || !invoiceNo) { toast.error('Vendor and invoice number are required'); return; }
@@ -89,9 +83,7 @@ export default function NewPurchaseForm({
             router.refresh();
         } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Failed to create purchase');
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     };
 
     return (
@@ -106,22 +98,14 @@ export default function NewPurchaseForm({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="label">Vendor</label>
-                                {/* Info banner if preferred vendor */}
-                                {showBanner && (
+                                {preferredVendorId && preferredVendorName && (
                                     <div className="mb-1.5 p-2 bg-blue-50 border-l-4 border-blue-400 rounded text-xs text-blue-800">
                                         Store Manager preferred: <span className="font-semibold">{preferredVendorName}</span> — you may change if needed
                                     </div>
                                 )}
-                                <select
-                                    value={vendorId}
-                                    onChange={(e) => handleVendorChange(e.target.value)}
-                                    className="select h-12 sm:h-8 w-full"
-                                    required
-                                >
+                                <select value={vendorId} onChange={(e) => handleVendorChange(e.target.value)} className="select h-12 sm:h-8 w-full" required>
                                     <option value="">Select vendor</option>
-                                    {vendors.map((v) => (
-                                        <option key={v.id} value={v.id}>{v.name}{v.gstin ? ` (${v.gstin})` : ''}</option>
-                                    ))}
+                                    {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}{v.gstin ? ` (${v.gstin})` : ''}</option>)}
                                     <option disabled>──────────────</option>
                                     <option value={ADD_NEW_VENDOR}>+ Add New Vendor</option>
                                 </select>
@@ -206,12 +190,10 @@ export default function NewPurchaseForm({
                     </div>
                 </div>
 
-                {/* Desktop buttons */}
                 <div className="hidden sm:flex justify-end gap-2">
                     <button type="button" onClick={() => router.back()} className="btn-secondary" disabled={loading}>Cancel</button>
                     <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Submitting...' : 'Submit Purchase'}</button>
                 </div>
-                {/* Mobile fixed bottom button */}
                 <div className="fixed bottom-0 left-0 right-0 sm:hidden p-3 bg-white border-t border-gray-200 z-40">
                     <button type="submit" className="w-full h-14 bg-blue-600 text-white rounded-lg font-semibold text-sm disabled:opacity-50" disabled={loading}>
                         {loading ? 'Submitting...' : 'Submit Purchase'}
