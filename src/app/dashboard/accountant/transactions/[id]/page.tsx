@@ -249,7 +249,7 @@ export default async function TransactionDetail({
                             <th className="text-right px-3 py-2 font-medium text-gray-600">Amount</th>
                         </tr></thead>
                         <tbody>
-                            {purchase.lines.map((l) => (
+                            {purchase.lines.map((l: { id: string; material: { sku_code: string; description: string }; quantity: number; rate: number; amount: number }) => (
                                 <tr key={l.id} className="border-b border-gray-100 even:bg-gray-50">
                                     <td className="px-3 py-2">{l.material.sku_code} - {l.material.description}</td>
                                     <td className="px-3 py-2 text-right tabular-nums">{Number(l.quantity)}</td>
@@ -277,7 +277,7 @@ export default async function TransactionDetail({
                                 <th className="text-left px-3 py-2 font-medium text-gray-600">Proof</th>
                             </tr></thead>
                             <tbody>
-                                {purchase.payments.map((p) => (
+                                {purchase.payments.map((p: { id: string; payment_date: string; payment_method: string; amount_paid: number; reference_id: string | null; accountant: { name: string }; payment_proof_path: string | null }) => (
                                     <tr key={p.id} className="border-b border-gray-100 even:bg-gray-50">
                                         <td className="px-3 py-2 tabular-nums">{formatDateTime(p.payment_date)}</td>
                                         <td className="px-3 py-2">{p.payment_method}</td>
