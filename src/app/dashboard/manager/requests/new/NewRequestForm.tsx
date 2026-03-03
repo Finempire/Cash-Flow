@@ -6,28 +6,34 @@ import { toast } from 'sonner';
 import { createMaterialRequest } from '@/app/actions/material-requests';
 import { Plus, Trash2 } from 'lucide-react';
 import AddMaterialModal, { type CreatedMaterial } from '@/components/ui/AddMaterialModal';
+import AddVendorModal, { type CreatedVendor } from '@/components/ui/AddVendorModal';
 
 interface Buyer { id: string; name: string; brand_code: string; }
 interface OrderItem { id: string; order_reference: string; buyer_id: string; style_name: string; }
 interface MaterialItem { id: string; sku_code: string; description: string; unit_of_measure: string; default_rate?: number; }
+interface VendorItem { id: string; name: string; gstin: string; }
 
 interface Line {
     material_id: string;
     description: string;
     quantity: number;
     expected_rate: number;
+    preferred_vendor_id: string; // '' = Any Vendor
 }
 
-const ADD_NEW_SENTINEL = '__ADD_NEW__';
+const ADD_NEW_MATERIAL = '__ADD_NEW_MATERIAL__';
+const ADD_NEW_VENDOR = '__ADD_NEW_VENDOR__';
 
 export default function NewRequestForm({
     buyers,
     orders,
     materials: initialMaterials,
+    vendors: initialVendors,
 }: {
     buyers: Buyer[];
     orders: OrderItem[];
     materials: MaterialItem[];
+    vendors: VendorItem[];
 }) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
@@ -37,99 +43,75 @@ export default function NewRequestForm({
     const [expectedDate, setExpectedDate] = useState('');
     const [remarks, setRemarks] = useState('');
     const [lines, setLines] = useState<Line[]>([
-        { material_id: '', description: '', quantity: 0, expected_rate: 0 },
+        { material_id: '', description: '', quantity: 0, expected_rate: 0, preferred_vendor_id: '' },
     ]);
 
-    // Local materials list — grows when user adds inline
     const [materials, setMaterials] = useState<MaterialItem[]>(initialMaterials);
+    const [vendors, setVendors] = useState<VendorItem[]>(initialVendors);
 
-    // Modal state — tracks which line index triggered the modal
-    const [modalLineIndex, setModalLineIndex] = useState<number | null>(null);
+    const [materialModalIdx, setMaterialModalIdx] = useState<number | null>(null);
+    const [vendorModalIdx, setVendorModalIdx] = useState<number | null>(null);
 
     const filteredOrders = orders.filter((o) => !buyerId || o.buyer_id === buyerId);
 
     const addLine = () => {
-        setLines([...lines, { material_id: '', description: '', quantity: 0, expected_rate: 0 }]);
+        setLines([...lines, { material_id: '', description: '', quantity: 0, expected_rate: 0, preferred_vendor_id: '' }]);
     };
 
     const removeLine = (index: number) => {
-        if (lines.length > 1) {
-            setLines(lines.filter((_, i) => i !== index));
-        }
+        if (lines.length > 1) setLines(lines.filter((_, i) => i !== index));
     };
 
     const updateLine = (index: number, field: keyof Line, value: string | number) => {
         const updated = [...lines];
+
         if (field === 'material_id') {
             const strVal = value as string;
-
-            // Intercept sentinel: open the modal
-            if (strVal === ADD_NEW_SENTINEL) {
-                setModalLineIndex(index);
-                // reset the select back to empty while modal is open
-                updated[index] = { ...updated[index], material_id: '' };
-                setLines(updated);
-                return;
-            }
-
+            if (strVal === ADD_NEW_MATERIAL) { setMaterialModalIdx(index); updated[index] = { ...updated[index], material_id: '' }; setLines(updated); return; }
             const mat = materials.find((m) => m.id === strVal);
-            updated[index] = {
-                ...updated[index],
-                material_id: strVal,
-                description: mat?.description || '',
-                expected_rate: mat?.default_rate || updated[index].expected_rate,
-            };
+            updated[index] = { ...updated[index], material_id: strVal, description: mat?.description || '', expected_rate: mat?.default_rate || updated[index].expected_rate };
+        } else if (field === 'preferred_vendor_id') {
+            const strVal = value as string;
+            if (strVal === ADD_NEW_VENDOR) { setVendorModalIdx(index); updated[index] = { ...updated[index], preferred_vendor_id: '' }; setLines(updated); return; }
+            updated[index] = { ...updated[index], preferred_vendor_id: strVal };
         } else {
             updated[index] = { ...updated[index], [field]: value };
         }
         setLines(updated);
     };
 
-    // Called when AddMaterialModal saves a new material
     const handleMaterialCreated = (mat: CreatedMaterial) => {
-        // Add to the local dropdown list
-        const newItem: MaterialItem = {
-            id: mat.id,
-            sku_code: mat.sku_code,
-            description: mat.description,
-            unit_of_measure: mat.unit_of_measure,
-            default_rate: mat.default_rate,
-        };
-        setMaterials((prev) => [...prev, newItem]);
-
-        // Auto-select and auto-fill rate in the triggering line
-        if (modalLineIndex !== null) {
+        setMaterials((prev) => [...prev, { id: mat.id, sku_code: mat.sku_code, description: mat.description, unit_of_measure: mat.unit_of_measure, default_rate: mat.default_rate }]);
+        if (materialModalIdx !== null) {
             const updated = [...lines];
-            updated[modalLineIndex] = {
-                ...updated[modalLineIndex],
-                material_id: mat.id,
-                description: mat.description,
-                expected_rate: mat.default_rate || updated[modalLineIndex].expected_rate,
-            };
+            updated[materialModalIdx] = { ...updated[materialModalIdx], material_id: mat.id, description: mat.description, expected_rate: mat.default_rate || updated[materialModalIdx].expected_rate };
             setLines(updated);
         }
+        setMaterialModalIdx(null);
+    };
 
-        setModalLineIndex(null);
+    const handleVendorCreated = (vendor: CreatedVendor) => {
+        setVendors((prev) => [...prev, vendor]);
+        if (vendorModalIdx !== null) {
+            const updated = [...lines];
+            updated[vendorModalIdx] = { ...updated[vendorModalIdx], preferred_vendor_id: vendor.id };
+            setLines(updated);
+        }
+        setVendorModalIdx(null);
     };
 
     const totalAmount = lines.reduce((sum, l) => sum + l.quantity * l.expected_rate, 0);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!buyerId || !orderId) {
-            toast.error('Buyer and order are required');
-            return;
-        }
+        if (!buyerId || !orderId) { toast.error('Buyer and order are required'); return; }
         if (lines.some((l) => !l.material_id || l.quantity <= 0 || l.expected_rate <= 0)) {
-            toast.error('All material lines must have valid material, quantity, and rate');
-            return;
+            toast.error('All material lines must have valid material, quantity, and rate'); return;
         }
-
         setLoading(true);
         try {
             const result = await createMaterialRequest({
-                buyer_id: buyerId,
-                order_id: orderId,
+                buyer_id: buyerId, order_id: orderId,
                 store_location: storeLocation || undefined,
                 expected_date: expectedDate || undefined,
                 remarks: remarks || undefined,
@@ -138,9 +120,9 @@ export default function NewRequestForm({
                     description: l.description || undefined,
                     quantity: l.quantity,
                     expected_rate: l.expected_rate,
+                    preferred_vendor_id: l.preferred_vendor_id || undefined,
                 })),
             });
-
             toast.success(`Request ${result.request_no} created`);
             router.push('/dashboard/manager/requests');
             router.refresh();
@@ -153,7 +135,7 @@ export default function NewRequestForm({
 
     return (
         <>
-            <form onSubmit={handleSubmit} className="space-y-4 max-w-4xl">
+            <form onSubmit={handleSubmit} className="space-y-4 max-w-5xl">
                 <div className="card">
                     <div className="card-header">
                         <h2 className="text-xs font-semibold text-gray-700">Request Details</h2>
@@ -162,62 +144,29 @@ export default function NewRequestForm({
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="label">Buyer</label>
-                                <select
-                                    value={buyerId}
-                                    onChange={(e) => { setBuyerId(e.target.value); setOrderId(''); }}
-                                    className="select"
-                                    required
-                                >
+                                <select value={buyerId} onChange={(e) => { setBuyerId(e.target.value); setOrderId(''); }} className="select" required>
                                     <option value="">Select buyer</option>
-                                    {buyers.map((b) => (
-                                        <option key={b.id} value={b.id}>{b.name} ({b.brand_code})</option>
-                                    ))}
+                                    {buyers.map((b) => <option key={b.id} value={b.id}>{b.name} ({b.brand_code})</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="label">Order</label>
-                                <select
-                                    value={orderId}
-                                    onChange={(e) => setOrderId(e.target.value)}
-                                    className="select"
-                                    required
-                                >
+                                <select value={orderId} onChange={(e) => setOrderId(e.target.value)} className="select" required>
                                     <option value="">Select order</option>
-                                    {filteredOrders.map((o) => (
-                                        <option key={o.id} value={o.id}>
-                                            {o.order_reference} {o.style_name ? `- ${o.style_name}` : ''}
-                                        </option>
-                                    ))}
+                                    {filteredOrders.map((o) => <option key={o.id} value={o.id}>{o.order_reference}{o.style_name ? ` - ${o.style_name}` : ''}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="label">Store Location</label>
-                                <input
-                                    type="text"
-                                    value={storeLocation}
-                                    onChange={(e) => setStoreLocation(e.target.value)}
-                                    className="input"
-                                    placeholder="e.g. Main Store"
-                                />
+                                <input type="text" value={storeLocation} onChange={(e) => setStoreLocation(e.target.value)} className="input" placeholder="e.g. Main Store" />
                             </div>
                             <div>
                                 <label className="label">Expected Date</label>
-                                <input
-                                    type="date"
-                                    value={expectedDate}
-                                    onChange={(e) => setExpectedDate(e.target.value)}
-                                    className="input"
-                                />
+                                <input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className="input" />
                             </div>
                             <div className="col-span-2">
                                 <label className="label">Remarks</label>
-                                <textarea
-                                    value={remarks}
-                                    onChange={(e) => setRemarks(e.target.value)}
-                                    className="textarea"
-                                    rows={2}
-                                    placeholder="Additional notes..."
-                                />
+                                <textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} className="textarea" rows={2} placeholder="Additional notes..." />
                             </div>
                         </div>
                     </div>
@@ -234,76 +183,48 @@ export default function NewRequestForm({
                         <table className="w-full text-xs">
                             <thead>
                                 <tr className="bg-gray-50 border-b border-gray-200">
-                                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-1/3">Material</th>
+                                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-1/4">Material</th>
                                     <th className="text-left px-3 py-2 font-medium text-gray-600">Description</th>
-                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Qty</th>
-                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-28">Rate</th>
-                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-28">Amount</th>
-                                    <th className="w-10"></th>
+                                    <th className="text-left px-3 py-2 font-medium text-gray-600 w-40">Preferred Vendor</th>
+                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-20">Qty</th>
+                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Rate</th>
+                                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Amount</th>
+                                    <th className="w-8"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {lines.map((line, i) => (
                                     <tr key={i} className="border-b border-gray-100">
                                         <td className="px-3 py-1.5">
-                                            <select
-                                                value={line.material_id}
-                                                onChange={(e) => updateLine(i, 'material_id', e.target.value)}
-                                                className="select text-xs"
-                                                required
-                                            >
+                                            <select value={line.material_id} onChange={(e) => updateLine(i, 'material_id', e.target.value)} className="select text-xs" required>
                                                 <option value="">Select material</option>
-                                                {materials.map((m) => (
-                                                    <option key={m.id} value={m.id}>
-                                                        {m.sku_code} - {m.description} ({m.unit_of_measure})
-                                                    </option>
-                                                ))}
-                                                {/* Separator + Add New option */}
+                                                {materials.map((m) => <option key={m.id} value={m.id}>{m.sku_code} - {m.description} ({m.unit_of_measure})</option>)}
                                                 <option disabled>──────────────</option>
-                                                <option value={ADD_NEW_SENTINEL}>+ Add New Material</option>
+                                                <option value={ADD_NEW_MATERIAL}>+ Add New Material</option>
                                             </select>
                                         </td>
                                         <td className="px-3 py-1.5">
-                                            <input
-                                                type="text"
-                                                value={line.description}
-                                                onChange={(e) => updateLine(i, 'description', e.target.value)}
-                                                className="input text-xs"
-                                                placeholder="Optional"
-                                            />
+                                            <input type="text" value={line.description} onChange={(e) => updateLine(i, 'description', e.target.value)} className="input text-xs" placeholder="Optional" />
                                         </td>
                                         <td className="px-3 py-1.5">
-                                            <input
-                                                type="number"
-                                                value={line.quantity || ''}
-                                                onChange={(e) => updateLine(i, 'quantity', parseFloat(e.target.value) || 0)}
-                                                className="input text-xs text-right tabular-nums"
-                                                min="0.01"
-                                                step="0.01"
-                                                required
-                                            />
+                                            <select value={line.preferred_vendor_id} onChange={(e) => updateLine(i, 'preferred_vendor_id', e.target.value)} className="select text-xs">
+                                                <option value="">Any Vendor</option>
+                                                {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                                                <option disabled>──────────────</option>
+                                                <option value={ADD_NEW_VENDOR}>+ Add New Vendor</option>
+                                            </select>
                                         </td>
                                         <td className="px-3 py-1.5">
-                                            <input
-                                                type="number"
-                                                value={line.expected_rate || ''}
-                                                onChange={(e) => updateLine(i, 'expected_rate', parseFloat(e.target.value) || 0)}
-                                                className="input text-xs text-right tabular-nums"
-                                                min="0.01"
-                                                step="0.01"
-                                                required
-                                            />
+                                            <input type="number" value={line.quantity || ''} onChange={(e) => updateLine(i, 'quantity', parseFloat(e.target.value) || 0)} className="input text-xs text-right tabular-nums" min="0.01" step="0.01" required />
+                                        </td>
+                                        <td className="px-3 py-1.5">
+                                            <input type="number" value={line.expected_rate || ''} onChange={(e) => updateLine(i, 'expected_rate', parseFloat(e.target.value) || 0)} className="input text-xs text-right tabular-nums" min="0.01" step="0.01" required />
                                         </td>
                                         <td className="px-3 py-1.5 text-right tabular-nums font-medium">
                                             {(line.quantity * line.expected_rate).toFixed(2)}
                                         </td>
                                         <td className="px-3 py-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => removeLine(i)}
-                                                className="p-1 text-gray-400 hover:text-red-500"
-                                                disabled={lines.length === 1}
-                                            >
+                                            <button type="button" onClick={() => removeLine(i)} className="p-1 text-gray-400 hover:text-red-500" disabled={lines.length === 1}>
                                                 <Trash2 size={14} />
                                             </button>
                                         </td>
@@ -312,12 +233,8 @@ export default function NewRequestForm({
                             </tbody>
                             <tfoot>
                                 <tr className="bg-gray-50 border-t border-gray-200">
-                                    <td colSpan={4} className="px-3 py-2 text-right font-medium text-gray-700">
-                                        Total Expected Amount:
-                                    </td>
-                                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">
-                                        {totalAmount.toFixed(2)}
-                                    </td>
+                                    <td colSpan={5} className="px-3 py-2 text-right font-medium text-gray-700">Total Expected Amount:</td>
+                                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{totalAmount.toFixed(2)}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -326,26 +243,16 @@ export default function NewRequestForm({
                 </div>
 
                 <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={() => router.back()}
-                        className="btn-secondary"
-                        disabled={loading}
-                    >
-                        Cancel
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={loading}>
-                        {loading ? 'Creating...' : 'Create Request'}
-                    </button>
+                    <button type="button" onClick={() => router.back()} className="btn-secondary" disabled={loading}>Cancel</button>
+                    <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Creating...' : 'Create Request'}</button>
                 </div>
             </form>
 
-            {/* Inline Add Material Modal */}
-            {modalLineIndex !== null && (
-                <AddMaterialModal
-                    onCreated={handleMaterialCreated}
-                    onClose={() => setModalLineIndex(null)}
-                />
+            {materialModalIdx !== null && (
+                <AddMaterialModal onCreated={handleMaterialCreated} onClose={() => setMaterialModalIdx(null)} />
+            )}
+            {vendorModalIdx !== null && (
+                <AddVendorModal stage="MATERIAL_REQUEST" onCreated={handleVendorCreated} onClose={() => setVendorModalIdx(null)} />
             )}
         </>
     );

@@ -60,6 +60,7 @@ const MaterialRequestLineSchema = z.object({
     description: z.string().optional(),
     quantity: z.number().positive(),
     expected_rate: z.number().positive(),
+    preferred_vendor_id: z.string().uuid().optional(),
 });
 
 const CreateRequestSchema = z.object({
@@ -94,6 +95,7 @@ export async function createMaterialRequest(formData: z.infer<typeof CreateReque
                     quantity: line.quantity,
                     expected_rate: line.expected_rate,
                     expected_amount: line.quantity * line.expected_rate,
+                    preferred_vendor_id: line.preferred_vendor_id || null,
                 })),
             },
         },

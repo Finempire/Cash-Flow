@@ -1,1 +1,1 @@
-feat: add inline material creation on material request form
+feat: add vendor selection, inline Add New Vendor, preferred vs actual vendor tracking
