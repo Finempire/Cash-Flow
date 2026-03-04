@@ -5,6 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PurchaseActions from './PurchaseActions';
+import { generateSignedUrl } from '@/lib/fileStorage';
 import { Eye, Download, FileText } from 'lucide-react';
 
 function DocumentRow({
@@ -16,12 +17,8 @@ function DocumentRow({
     filePath: string | null;
     status: 'uploaded' | 'pending' | 'awaiting';
 }) {
-    const viewUrl = filePath
-        ? `/api/files?path=${encodeURIComponent(filePath)}`
-        : null;
-    const downloadUrl = filePath
-        ? `/api/files?path=${encodeURIComponent(filePath)}&download=1`
-        : null;
+    const viewUrl = filePath ? generateSignedUrl(filePath) : null;
+    const downloadUrl = filePath ? `${generateSignedUrl(filePath)}&download=1` : null;
 
     return (
         <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 gap-2 flex-wrap">

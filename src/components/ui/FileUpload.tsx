@@ -10,6 +10,7 @@ interface FileUploadProps {
     purchaseId?: string;
     onUploaded?: (filePath: string) => void;
     existingPath?: string | null;
+    existingUrl?: string | null;
     label?: string;
     required?: boolean;
     disabled?: boolean;
@@ -22,6 +23,7 @@ export default function FileUpload({
     purchaseId,
     onUploaded,
     existingPath,
+    existingUrl,
     label,
     required,
     disabled,
@@ -33,6 +35,7 @@ export default function FileUpload({
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [uploadedPath, setUploadedPath] = useState<string | null>(existingPath || null);
+    const [uploadedUrl, setUploadedUrl] = useState<string | null>(existingUrl || null);
 
     const handleFileSelect = useCallback((file: File) => {
         setError(null);
@@ -79,8 +82,8 @@ export default function FileUpload({
         if (purchaseId) formData.append('purchase_id', purchaseId);
 
         try {
-            // Simulate progress using XHR for real progress events
-            const path = await new Promise<string>((resolve, reject) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data = await new Promise<any>((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.upload.addEventListener('progress', (e) => {
                     if (e.lengthComputable) {
@@ -89,9 +92,9 @@ export default function FileUpload({
                 });
                 xhr.addEventListener('load', () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        const data = JSON.parse(xhr.responseText);
-                        if (data.success) resolve(data.file_path);
-                        else reject(new Error(data.error || 'Upload failed'));
+                        const responseData = JSON.parse(xhr.responseText);
+                        if (responseData.success) resolve(responseData);
+                        else reject(new Error(responseData.error || 'Upload failed'));
                     } else {
                         try {
                             const data = JSON.parse(xhr.responseText);
@@ -106,9 +109,10 @@ export default function FileUpload({
                 xhr.send(formData);
             });
 
-            setUploadedPath(path);
+            setUploadedPath(data.file_path);
+            setUploadedUrl(data.signed_url);
             setState('success');
-            onUploaded?.(path);
+            onUploaded?.(data.file_path);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
             setState('error');
@@ -124,13 +128,9 @@ export default function FileUpload({
         if (inputRef.current) inputRef.current.value = '';
     };
 
-    const viewUrl = uploadedPath
-        ? `/api/files?path=${encodeURIComponent(uploadedPath)}`
-        : null;
+    const viewUrl = uploadedUrl ? uploadedUrl : null;
 
-    const downloadUrl = uploadedPath
-        ? `/api/files?path=${encodeURIComponent(uploadedPath)}&download=1`
-        : null;
+    const downloadUrl = uploadedUrl ? `${uploadedUrl}&download=1` : null;
 
     const fileName = uploadedPath
         ? uploadedPath.split('/').pop() || 'document'

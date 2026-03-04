@@ -4,6 +4,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 import StatusBadge from '@/components/ui/StatusBadge';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { generateSignedUrl } from '@/lib/fileStorage';
 import { Eye, Download, FileText, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 function DocumentCard({
@@ -17,8 +18,8 @@ function DocumentCard({
     status: 'uploaded' | 'pending' | 'awaiting';
     role: string;
 }) {
-    const viewUrl = filePath ? `/api/files?path=${encodeURIComponent(filePath)}` : null;
-    const downloadUrl = filePath ? `/api/files?path=${encodeURIComponent(filePath)}&download=1` : null;
+    const viewUrl = filePath ? generateSignedUrl(filePath) : null;
+    const downloadUrl = filePath ? `${generateSignedUrl(filePath)}&download=1` : null;
     const canDownload = role !== 'CEO';
 
     return (
@@ -288,7 +289,7 @@ export default async function TransactionDetail({
                                             {p.payment_proof_path ? (
                                                 <div className="flex gap-1">
                                                     <a
-                                                        href={`/api/files?path=${encodeURIComponent(p.payment_proof_path)}`}
+                                                        href={generateSignedUrl(p.payment_proof_path)}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="btn-ghost text-2xs p-1 flex items-center gap-0.5"
@@ -297,7 +298,7 @@ export default async function TransactionDetail({
                                                     </a>
                                                     {userRole !== 'CEO' && (
                                                         <a
-                                                            href={`/api/files?path=${encodeURIComponent(p.payment_proof_path)}&download=1`}
+                                                            href={`${generateSignedUrl(p.payment_proof_path)}&download=1`}
                                                             download
                                                             className="btn-ghost text-2xs p-1 flex items-center gap-0.5"
                                                         >
