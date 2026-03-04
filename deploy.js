@@ -21,8 +21,10 @@ sed -i '/^AUTH_URL=/d' .env 2>/dev/null || true
 sed -i '/^AUTH_TRUST_HOST=/d' .env 2>/dev/null || true
 sed -i '/^NEXTAUTH_SECRET=/d' .env 2>/dev/null || true
 
-# Ensure AUTH_SECRET exists
+# Ensure AUTH_SECRET and File Secrets exist
 grep -q '^AUTH_SECRET=' .env || echo 'AUTH_SECRET="k8xP2mN7qR3sT9vW4yB6dF1hJ5lC8nQ0rU3wA7eI2oK4tX6zM9pV1gY5bJ8fH"' >> .env
+grep -q '^FILE_SIGNING_SECRET=' .env || echo 'FILE_SIGNING_SECRET="k8xP2mN7qR3sT9vW4yB6dF1hJ5lC8nQ0rU3wA7eI2oK4tX6zM9pV1gY5bJ8fH"' >> .env
+grep -q '^UPLOAD_BASE_PATH=' .env || echo 'UPLOAD_BASE_PATH="./uploads"' >> .env
 
 echo "=== Install Dependencies ==="
 cd ${APP_DIR}
@@ -54,6 +56,11 @@ server {
     listen 80;
     server_name 172.105.56.225;
     client_max_body_size 20M;
+    location /uploads/ {
+        deny all;
+        return 403;
+    }
+    
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
