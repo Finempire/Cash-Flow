@@ -22,6 +22,7 @@ type UploadState = 'idle' | 'selected' | 'uploading' | 'success' | 'error';
 export default function FileUpload({
     type,
     purchaseId,
+    expenseId,
     onUploaded,
     existingPath,
     existingUrl,
