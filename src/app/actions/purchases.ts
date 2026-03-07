@@ -442,8 +442,8 @@ export async function uploadTaxInvoice(purchaseId: string, taxInvoiceKey: string
     if (purchase.invoice_type_submitted !== 'PROVISIONAL') {
         throw new Error('Tax invoice upload only required for provisional invoices');
     }
-    if (!['PAID_PENDING_TAX_INVOICE', 'PAID'].includes(purchase.status)) {
-        throw new Error('Purchase must be paid before uploading tax invoice');
+    if (!['APPROVED', 'PARTIALLY_PAID', 'PAID_PENDING_TAX_INVOICE', 'PAID'].includes(purchase.status)) {
+        throw new Error('Purchase must be approved or paid before uploading tax invoice');
     }
 
     await prisma.purchase.update({
@@ -477,6 +477,45 @@ export async function uploadTaxInvoice(purchaseId: string, taxInvoiceKey: string
             acc.id,
             'Tax Invoice Received',
             `Final GST tax invoice uploaded for ${purchase.purchase_no}`,
+            'Purchase',
+            purchaseId
+        );
+    }
+
+    revalidatePath('/dashboard');
+    return { success: true };
+}
+
+export async function uploadPrimaryInvoice(purchaseId: string, invoiceKey: string) {
+    const session = await requireRole('RUNNER');
+
+    const purchase = await prisma.purchase.findUnique({
+        where: { id: purchaseId },
+    });
+
+    if (!purchase) throw new Error('Purchase not found');
+    if (purchase.runner_id !== session.user.id) {
+        throw new Error('Only the assigned runner can upload invoices');
+    }
+
+    const updateField =
+        purchase.invoice_type_submitted === 'PROVISIONAL'
+            ? { provisional_invoice_path: invoiceKey }
+            : { tax_invoice_path: invoiceKey };
+
+    await prisma.purchase.update({
+        where: { id: purchaseId },
+        data: updateField,
+    });
+
+    const accountants = await prisma.user.findMany({
+        where: { role: 'ACCOUNTANT', is_active: true },
+    });
+    for (const acc of accountants) {
+        await createNotification(
+            acc.id,
+            'Invoice Uploaded',
+            `Missing invoice was uploaded by runner for purchase ${purchase.purchase_no}`,
             'Purchase',
             purchaseId
         );

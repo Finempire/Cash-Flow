@@ -17,6 +17,7 @@ interface Props {
         runner_remark: string | null;
     } | null;
     hasTaxInvoice: boolean;
+    hasPrimaryDoc: boolean;
     isAssignedRunner: boolean;
 }
 
@@ -26,6 +27,7 @@ export default function PurchaseActions({
     invoiceType,
     vendorConfirmation,
     hasTaxInvoice,
+    hasPrimaryDoc,
     isAssignedRunner,
 }: Props) {
     const router = useRouter();
@@ -33,6 +35,9 @@ export default function PurchaseActions({
     const [remark, setRemark] = useState('');
     const [taxInvoicePath, setTaxInvoicePath] = useState<string | null>(null);
     const [taxInvoiceError, setTaxInvoiceError] = useState<string | null>(null);
+
+    const [primaryDocPath, setPrimaryDocPath] = useState<string | null>(null);
+    const [primaryDocError, setPrimaryDocError] = useState<string | null>(null);
 
     if (!isAssignedRunner) return null;
 
@@ -86,15 +91,37 @@ export default function PurchaseActions({
         }
     };
 
+    const handlePrimaryDocSubmit = async () => {
+        if (!primaryDocPath) {
+            setPrimaryDocError('Please upload the invoice file first');
+            return;
+        }
+        setLoading(true);
+        try {
+            // Re-use logic but we need to import or have `uploadPrimaryInvoice` 
+            // from actions.
+            const { uploadPrimaryInvoice } = await import('@/app/actions/purchases');
+            await uploadPrimaryInvoice(purchaseId, primaryDocPath);
+            toast.success('Invoice uploaded successfully.');
+            router.refresh();
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : 'Failed to upload invoice');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const showVendorSection =
         vendorConfirmation && vendorConfirmation.status !== 'VENDOR_CONFIRMED';
 
     const showTaxInvoiceSection =
         invoiceType === 'PROVISIONAL' &&
         !hasTaxInvoice &&
-        ['PAID', 'PAID_PENDING_TAX_INVOICE'].includes(status);
+        ['APPROVED', 'PAID', 'PAID_PENDING_TAX_INVOICE', 'PARTIALLY_PAID'].includes(status);
 
-    if (!showVendorSection && !showTaxInvoiceSection) return null;
+    const showPrimaryDocSection = !hasPrimaryDoc;
+
+    if (!showVendorSection && !showTaxInvoiceSection && !showPrimaryDocSection) return null;
 
     return (
         <div className="space-y-4">
@@ -138,6 +165,44 @@ export default function PurchaseActions({
                                 {loading ? 'Confirming...' : 'Vendor Confirmed'}
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Primary Invoice Upload Section */}
+            {showPrimaryDocSection && (
+                <div className="card border-red-200">
+                    <div className="card-header bg-red-50">
+                        <h2 className="text-xs font-semibold text-red-800">
+                            ⚠ Primary Invoice Missing
+                        </h2>
+                    </div>
+                    <div className="card-body space-y-3">
+                        <p className="text-xs text-gray-600">
+                            Please upload the main invoice. Without it, the purchase cannot be processed further.
+                        </p>
+                        <FileUpload
+                            type={invoiceType === 'PROVISIONAL' ? 'PROVISIONAL_INVOICE' : 'TAX_INVOICE'}
+                            purchaseId={purchaseId}
+                            onUploaded={(path) => {
+                                setPrimaryDocPath(path);
+                                setPrimaryDocError(null);
+                            }}
+                            label={invoiceType === 'PROVISIONAL' ? 'Provisional Invoice / Slip' : 'Tax Invoice / Final GST Bill'}
+                            required
+                            disabled={loading}
+                        />
+                        {primaryDocError && (
+                            <p className="text-xs text-red-600">⚠ {primaryDocError}</p>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handlePrimaryDocSubmit}
+                            disabled={loading || !primaryDocPath}
+                            className="btn-primary w-full h-12 sm:h-auto sm:w-auto"
+                        >
+                            {loading ? 'Submitting...' : 'Submit Invoice'}
+                        </button>
                     </div>
                 </div>
             )}

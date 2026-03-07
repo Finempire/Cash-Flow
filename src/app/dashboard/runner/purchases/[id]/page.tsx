@@ -240,6 +240,7 @@ export default async function RunnerPurchaseDetail({
                     runner_remark: purchase.vendorConfirmation.runner_remark,
                 } : null}
                 hasTaxInvoice={!!purchase.tax_invoice_path}
+                hasPrimaryDoc={!!primaryDoc}
                 isAssignedRunner={purchase.runner_id === session.user.id}
             />
         </div>
