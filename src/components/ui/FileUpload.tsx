@@ -3,11 +3,12 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, FileText, Check, X, Eye, Download, Camera, RefreshCw } from 'lucide-react';
 
-export type UploadType = 'PROVISIONAL_INVOICE' | 'TAX_INVOICE' | 'PAYMENT_PROOF';
+export type UploadType = 'PROVISIONAL_INVOICE' | 'TAX_INVOICE' | 'PAYMENT_PROOF' | 'EXPENSE_INVOICE' | 'EXPENSE_PROOF';
 
 interface FileUploadProps {
     type: UploadType;
     purchaseId?: string;
+    expenseId?: string;
     onUploaded?: (filePath: string) => void;
     existingPath?: string | null;
     existingUrl?: string | null;
@@ -80,6 +81,7 @@ export default function FileUpload({
         formData.append('file', selectedFile);
         formData.append('type', type);
         if (purchaseId) formData.append('purchase_id', purchaseId);
+        if (expenseId) formData.append('expense_id', expenseId);
 
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

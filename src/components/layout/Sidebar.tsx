@@ -40,18 +40,22 @@ function getNavItems(role: string): NavItem[] {
             return [
                 { label: 'Dashboard', href: '/dashboard/manager', icon: <LayoutDashboard size={16} /> },
                 { label: 'Material Requests', href: '/dashboard/manager/requests', icon: <ClipboardList size={16} /> },
+                { label: 'Other Expenses', href: '/dashboard/expenses', icon: <CreditCard size={16} /> },
             ];
         case 'RUNNER':
             return [
                 { label: 'Dashboard', href: '/dashboard/runner', icon: <LayoutDashboard size={16} /> },
                 { label: 'Pending Requests', href: '/dashboard/runner/pending', icon: <Clock size={16} /> },
                 { label: 'My Purchases', href: '/dashboard/runner/my-purchases', icon: <ShoppingCart size={16} /> },
+                { label: 'Other Expenses', href: '/dashboard/expenses', icon: <CreditCard size={16} /> },
                 { label: 'Notifications', href: '/dashboard/runner/notifications', icon: <Bell size={16} /> },
             ];
         case 'ACCOUNTANT':
             return [
                 { label: 'Dashboard', href: '/dashboard/accountant', icon: <LayoutDashboard size={16} /> },
                 { label: 'Purchase Review', href: '/dashboard/accountant/purchases-review', icon: <CheckCircle2 size={16} /> },
+                { label: 'Other Expenses', href: '/dashboard/accountant/other-expenses', icon: <FileText size={16} /> },
+                { label: 'My Expenses', href: '/dashboard/expenses', icon: <CreditCard size={16} /> },
                 { label: 'Payments', href: '/dashboard/accountant/payments', icon: <CreditCard size={16} /> },
                 { label: 'All Transactions', href: '/dashboard/accountant/all-transactions', icon: <ListFilter size={16} /> },
                 { label: 'Reports', href: '/dashboard/accountant/reports', icon: <BarChart3 size={16} /> },
@@ -66,6 +70,7 @@ function getNavItems(role: string): NavItem[] {
                 { label: 'Dashboard', href: '/dashboard/ceo', icon: <LayoutDashboard size={16} /> },
                 { label: 'Reports', href: '/dashboard/ceo/reports', icon: <BarChart3 size={16} /> },
                 { label: 'Transactions', href: '/dashboard/ceo/transactions', icon: <FileText size={16} /> },
+                { label: 'Other Expenses', href: '/dashboard/expenses', icon: <CreditCard size={16} /> },
             ];
         default:
             return [];

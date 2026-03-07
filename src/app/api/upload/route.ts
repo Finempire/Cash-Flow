@@ -10,6 +10,8 @@ const UPLOAD_PERMISSIONS: Record<string, string[]> = {
     PROVISIONAL_INVOICE: ['RUNNER'],
     TAX_INVOICE: ['RUNNER'],
     PAYMENT_PROOF: ['ACCOUNTANT'],
+    EXPENSE_INVOICE: ['STORE_MANAGER', 'RUNNER', 'ACCOUNTANT', 'CEO'],
+    EXPENSE_PROOF: ['ACCOUNTANT'],
 };
 
 export async function POST(request: NextRequest) {
@@ -23,6 +25,7 @@ export async function POST(request: NextRequest) {
         const file = formData.get('file') as File | null;
         const type = formData.get('type') as string | null;
         const purchaseId = formData.get('purchase_id') as string | null;
+        const expenseId = formData.get('expense_id') as string | null;
 
         if (!file || file.size === 0) {
             return NextResponse.json({ error: 'Please select a file' }, { status: 400 });
@@ -51,30 +54,42 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'File size must be under 10MB' }, { status: 400 });
         }
 
-        const folder = purchaseId || 'new';
+        const targetId = type?.startsWith('EXPENSE') ? expenseId : purchaseId;
+        const folder = targetId || 'new';
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
 
         // Save using secure storage layer
         const relativePath = await saveFile(buffer, type, folder, file.name);
 
-        if (purchaseId) {
+        if (targetId) {
             if (type === 'PROVISIONAL_INVOICE') {
                 await prisma.purchase.update({
-                    where: { id: purchaseId },
+                    where: { id: targetId },
                     data: { provisional_invoice_path: relativePath },
                 });
             } else if (type === 'TAX_INVOICE') {
                 await prisma.purchase.update({
-                    where: { id: purchaseId },
+                    where: { id: targetId },
                     data: { tax_invoice_path: relativePath },
+                });
+            } else if (type === 'EXPENSE_INVOICE') {
+                await prisma.otherExpense.update({
+                    where: { id: targetId },
+                    data: { invoice_path: relativePath },
+                });
+            } else if (type === 'EXPENSE_PROOF') {
+                await prisma.otherExpense.update({
+                    where: { id: targetId },
+                    data: { payment_proof_path: relativePath },
                 });
             }
 
+            const entityType = type.startsWith('EXPENSE_') ? 'OtherExpense' : 'Purchase';
             await prisma.auditLog.create({
                 data: {
-                    entity_type: 'Purchase',
-                    entity_id: purchaseId,
+                    entity_type: entityType,
+                    entity_id: targetId,
                     action: `${type}_UPLOADED`,
                     performed_by: session.user.id,
                     new_state: { file_path: relativePath, uploaded_by: session.user.name },
