@@ -23,6 +23,7 @@ jobs:
           host: ${{ secrets.LINODE_HOST }}
           username: ${{ secrets.LINODE_USERNAME }}
           password: ${{ secrets.LINODE_PASSWORD }}
+          port: ${{ secrets.LINODE_PORT }}
           source: "update.zip"
           target: "/var/www/Cash-Flow"
           strip_components: 0
@@ -33,6 +34,7 @@ jobs:
           host: ${{ secrets.LINODE_HOST }}
           username: ${{ secrets.LINODE_USERNAME }}
           password: ${{ secrets.LINODE_PASSWORD }}
+          port: ${{ secrets.LINODE_PORT }}
           script: |
             # Navigate to application directory
             cd /var/www/Cash-Flow
@@ -42,7 +44,7 @@ jobs:
             rm update.zip
             
             # Install dependencies and build
-            npm ci
+            npm install --legacy-peer-deps
             npx prisma generate
             npx prisma db push --accept-data-loss
             npm run build
