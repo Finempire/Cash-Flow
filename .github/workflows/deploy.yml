@@ -1,0 +1,51 @@
+name: Deploy Next.js to Linode
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Create Update Archive
+        run: |
+          zip -qr update.zip src/ prisma/ package.json package-lock.json public/
+          
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: ${{ secrets.LINODE_USERNAME }}
+          password: ${{ secrets.LINODE_PASSWORD }}
+          source: "update.zip"
+          target: "/var/www/Cash-Flow"
+          strip_components: 0
+          
+      - name: Execute deployment commands via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.LINODE_HOST }}
+          username: ${{ secrets.LINODE_USERNAME }}
+          password: ${{ secrets.LINODE_PASSWORD }}
+          script: |
+            # Navigate to application directory
+            cd /var/www/Cash-Flow
+            
+            # Extract updated files over existing ones
+            unzip -o update.zip
+            rm update.zip
+            
+            # Install dependencies and build
+            npm ci
+            npx prisma generate
+            npx prisma db push --accept-data-loss
+            npm run build
+            
+            # Restart application
+            pm2 restart cashflow
