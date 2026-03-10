@@ -132,7 +132,7 @@ export default function NewOrderForm({ initialBuyers }: NewOrderFormProps) {
                 throw new Error(data.error || 'Failed to save order');
             }
 
-            router.push('/dashboard/manager/orders');
+            router.push('/dashboard/accountant/master/orders');
             router.refresh();
         } catch (err: any) {
             setError(err.message);

@@ -5,7 +5,7 @@ import NewOrderForm from './NewOrderForm';
 export const dynamic = 'force-dynamic';
 
 export default async function NewOrderPage() {
-    await requireRole('STORE_MANAGER', 'ACCOUNTANT');
+    await requireRole('ACCOUNTANT');
 
     const buyers = await prisma.buyer.findMany({
         orderBy: { name: 'asc' },
