@@ -39,6 +39,7 @@ function getNavItems(role: string): NavItem[] {
         case 'STORE_MANAGER':
             return [
                 { label: 'Dashboard', href: '/dashboard/manager', icon: <LayoutDashboard size={16} /> },
+                { label: 'Orders', href: '/dashboard/manager/orders', icon: <Package size={16} /> },
                 { label: 'Material Requests', href: '/dashboard/manager/requests', icon: <ClipboardList size={16} /> },
                 { label: 'Other Expenses', href: '/dashboard/expenses', icon: <CreditCard size={16} /> },
             ];
