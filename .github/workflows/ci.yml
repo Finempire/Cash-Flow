@@ -24,6 +24,8 @@ jobs:
         run: npm i prisma --no-save --legacy-peer-deps
       - name: Validate Schema
         run: npx prisma validate
+        env:
+          DATABASE_URL: "postgresql://x:x@localhost:5432/x"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # PARALLEL JOB 2: Lint & Type Check (Step 1 of Build Pipeline)
@@ -42,6 +44,8 @@ jobs:
         run: npm ci --legacy-peer-deps
       - name: Generate Prisma Client (Required for types)
         run: npx prisma generate
+        env:
+          DATABASE_URL: "postgresql://x:x@localhost:5432/x"
       - name: TypeScript Type Check
         run: npx tsc --noEmit
       - name: ESLint
