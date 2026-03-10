@@ -24,7 +24,8 @@ export default function RunnerBottomNav() {
                 }
                 if (notifRes.ok) {
                     const notifs = await notifRes.json();
-                    setUnreadCount((notifs as { is_read: boolean }[]).filter((n) => !n.is_read).length);
+                    const notifsArray = Array.isArray(notifs?.notifications) ? notifs.notifications : (Array.isArray(notifs) ? notifs : []);
+                    setUnreadCount((notifsArray as { is_read: boolean }[]).filter((n) => !n.is_read).length);
                 }
             } catch {
                 // silent

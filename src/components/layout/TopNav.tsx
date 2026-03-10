@@ -35,10 +35,13 @@ export default function TopNav({ userName, userRole, onMenuToggle }: TopNavProps
                 const res = await fetch('/api/notifications');
                 if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data)) {
+                    if (data && Array.isArray(data.notifications)) {
+                        setNotifications(data.notifications);
+                    } else if (Array.isArray(data)) {
+                        // Support legacy array format just in case
                         setNotifications(data);
                     } else {
-                        console.error('Expected array from /api/notifications, got:', data);
+                        console.error('Expected object with notifications array from /api/notifications, got:', data);
                     }
                 }
             } catch {
