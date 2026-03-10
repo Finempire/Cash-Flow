@@ -1,4 +1,4 @@
-name: CI / CD — Cash-Flow
+name: CI — Type Check & Build
 
 on:
   push:
@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# ─────────────────────────────────────────────────────────────────────────────
-# JOB 1: CI — Type-check & Build (runs on every push and PR)
-# ─────────────────────────────────────────────────────────────────────────────
 jobs:
   ci:
     name: CI — Type Check & Build
@@ -19,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -34,88 +31,10 @@ jobs:
       - name: TypeScript type check
         run: npx tsc --noEmit
 
-      - name: Build Next.js app
+      - name: Build Next.js
         run: npm run build
         env:
-          # Dummy vars so build doesn't fail — real values live on server
           DATABASE_URL: "postgresql://x:x@localhost:5432/x"
-          NEXTAUTH_SECRET: "ci-placeholder-secret"
+          NEXTAUTH_SECRET: "ci-placeholder"
           NEXTAUTH_URL: "http://localhost:3000"
-          AUTH_SECRET: "ci-placeholder-secret"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # JOB 2: CD — Deploy to Linode (only on push to main, only if CI passes)
-  # ─────────────────────────────────────────────────────────────────────────────
-  cd:
-    name: CD — Deploy to Linode
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: ci                       # ← only runs if CI job succeeds
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create deployment archive
-        run: |
-          zip -qr update.zip \
-            src/ \
-            prisma/ \
-            public/ \
-            package.json \
-            package-lock.json \
-            next.config.js \
-            tailwind.config.ts \
-            tsconfig.json \
-            postcss.config.js \
-            .eslintrc.json || true
-
-      - name: Copy archive to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.LINODE_HOST }}
-          username: ${{ secrets.LINODE_USERNAME }}
-          password: ${{ secrets.LINODE_PASSWORD }}
-          port: ${{ secrets.LINODE_PORT }}
-          source: "update.zip"
-          target: "/var/www/Cash-Flow"
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.LINODE_HOST }}
-          username: ${{ secrets.LINODE_USERNAME }}
-          password: ${{ secrets.LINODE_PASSWORD }}
-          port: ${{ secrets.LINODE_PORT }}
-          command_timeout: 10m
-          script: |
-            set -e
-            cd /var/www/Cash-Flow
-
-            echo "[1/5] Extracting files..."
-            unzip -o update.zip
-            rm -f update.zip
-
-            echo "[2/5] Installing dependencies..."
-            npm install --legacy-peer-deps
-
-            echo "[3/5] Syncing database schema..."
-            npx prisma db push --skip-generate
-            npx prisma generate
-
-            echo "[4/5] Building app..."
-            npm run build
-
-            echo "[5/5] Restarting..."
-            pm2 restart cashflow --update-env
-
-            echo "Deploy complete ✓"
-
-      - name: Health check
-        run: |
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "http://${{ secrets.LINODE_HOST }}/api/health" --max-time 20 || echo "000")
-          echo "Health: HTTP $STATUS"
-          [ "$STATUS" = "200" ] && echo "✅ App is healthy" || echo "⚠️ Check pm2 logs on server"
+          AUTH_SECRET: "ci-placeholder"
