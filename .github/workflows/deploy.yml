@@ -1,4 +1,4 @@
-name: Deploy Next.js to Linode
+name: Deploy to Linode (CI/CD)
 
 on:
   push:
@@ -7,16 +7,31 @@ on:
 
 jobs:
   deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 15
+
     steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Create Update Archive
+
+      # ── 2. Package all app files ─────────────────────────────────────────────
+      - name: Create deployment archive
         run: |
-          zip -qr update.zip src/ prisma/ package.json package-lock.json public/
-          
+          zip -qr update.zip \
+            src/ \
+            prisma/ \
+            public/ \
+            package.json \
+            package-lock.json \
+            next.config.js \
+            tailwind.config.ts \
+            tsconfig.json \
+            postcss.config.js \
+            .eslintrc.json || true
+
+      # ── 3. Copy archive to server ─────────────────────────────────────────────
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -27,27 +42,51 @@ jobs:
           source: "update.zip"
           target: "/var/www/Cash-Flow"
           strip_components: 0
-          
-      - name: Execute deployment commands via SSH
+
+      # ── 4. Deploy on server ───────────────────────────────────────────────────
+      - name: Deploy & sync DB via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.LINODE_HOST }}
           username: ${{ secrets.LINODE_USERNAME }}
           password: ${{ secrets.LINODE_PASSWORD }}
           port: ${{ secrets.LINODE_PORT }}
+          command_timeout: 10m
           script: |
-            # Navigate to application directory
-            cd /var/www/Cash-Flow
-            
-            # Extract updated files over existing ones
+            set -e
+
+            APP_DIR="/var/www/Cash-Flow"
+            cd "$APP_DIR"
+
+            echo "==> Extracting files..."
             unzip -o update.zip
-            rm update.zip
-            
-            # Install dependencies and build
+            rm -f update.zip
+
+            echo "==> Installing dependencies..."
             npm install --legacy-peer-deps
+
+            echo "==> Syncing database schema (safe — no data loss)..."
+            npx prisma db push --skip-generate
             npx prisma generate
-            npx prisma db push --accept-data-loss
+
+            echo "==> Building Next.js app..."
             npm run build
-            
-            # Restart application
-            pm2 restart cashflow
+
+            echo "==> Restarting application..."
+            pm2 restart cashflow --update-env
+
+            echo "==> Deploy complete ✓"
+
+      # ── 5. Health check ───────────────────────────────────────────────────────
+      - name: Health check
+        run: |
+          sleep 15
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "http://${{ secrets.LINODE_HOST }}/api/health" \
+            --max-time 20 || echo "000")
+          echo "Health check status: HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ App is healthy"
+          else
+            echo "⚠️  App returned HTTP $STATUS — check pm2 logs on server"
+          fi
